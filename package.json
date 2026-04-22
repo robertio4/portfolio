@@ -1,0 +1,21 @@
+{
+  "name": "portfolio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Portfolio personal de Roberto con chat conversacional sobre su CV",
+  "scripts": {
+    "dev": "concurrently -n web,api -c blue,magenta \"pnpm --filter web dev\" \"pnpm --filter api dev\"",
+    "build": "pnpm --filter web build && pnpm --filter api build",
+    "start": "pnpm --filter api start",
+    "ingest": "pnpm --filter api ingest",
+    "db:migrate": "pnpm --filter api migrate",
+    "typecheck": "pnpm --filter web typecheck && pnpm --filter api typecheck"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20"
+  }
+}

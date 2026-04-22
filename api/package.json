@@ -1,0 +1,35 @@
+{
+  "name": "api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "ingest": "tsx scripts/ingest.ts",
+    "migrate": "tsx scripts/migrate.ts",
+    "list-models": "tsx scripts/list-models.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@google/genai": "^0.7.0",
+    "@hono/node-server": "^1.13.0",
+    "better-sqlite3": "^11.5.0",
+    "dotenv": "^16.4.5",
+    "geoip-lite": "^1.4.10",
+    "hono": "^4.6.0",
+    "pdf-parse": "^1.1.1",
+    "ua-parser-js": "^2.0.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/geoip-lite": "^1.4.4",
+    "@types/node": "^22.7.0",
+    "@types/pdf-parse": "^1.1.4",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

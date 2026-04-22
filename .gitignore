@@ -1,0 +1,38 @@
+node_modules/
+dist/
+build/
+.DS_Store
+
+# Env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# SQLite (data should not be committed)
+api/data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Vite
+.vite/
+
+# Cache
+.cache/
+.turbo/
+
+# RAG source documents (embeddings live in api/src/rag/index.json)
+doc/

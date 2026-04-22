@@ -1,0 +1,94 @@
+.chat {
+  position: relative;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  padding: clamp(1.2rem, 3vw, 2.2rem) var(--gutter);
+}
+
+.chat__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 1rem;
+}
+.chat__mark {
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--paper-50);
+  line-height: 1;
+  border: 1.5px solid var(--paper-50);
+  padding: 0.4rem 0.55rem 0.35rem;
+  border-radius: 999px;
+}
+
+.chat__column {
+  width: 100%;
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: clamp(2.5rem, 8vh, 6rem) 0 2.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 0;
+}
+
+.intro {
+  margin-bottom: 2.6rem;
+}
+.intro__kicker {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.3em;
+  color: var(--amber-500);
+  text-transform: uppercase;
+  margin-bottom: 1.2rem;
+}
+.intro__name {
+  font-family: var(--font-display);
+  font-size: var(--fs-display);
+  font-weight: 500;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  margin: 0 0 1.5rem;
+  font-variation-settings: 'opsz' 144, 'SOFT' 0;
+}
+.intro__lede {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: var(--fs-md);
+  color: var(--paper-200);
+  max-width: 32ch;
+  margin: 0;
+}
+
+.chat__error {
+  margin: 1.5rem 0;
+  padding: 0.9rem 1.1rem;
+  border-left: 2px solid var(--error);
+  background: rgba(194, 91, 91, 0.06);
+  color: var(--paper-100);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
+
+.chat__composer { margin-top: 2.2rem; }
+
+.chat__turnstile {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  visibility: hidden;
+}
+
+.chat__footer {
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.18em;
+  color: var(--paper-500);
+  padding-top: 2rem;
+}

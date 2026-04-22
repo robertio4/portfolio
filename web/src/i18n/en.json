@@ -1,0 +1,21 @@
+{
+  "intro.kicker": "AI Assistant · 24/7 at your service",
+  "intro.name": "Roberto Rodríguez",
+  "intro.lede": "Ask anything about my career, projects, or how I work.",
+  "composer.placeholder": "Type your question…",
+  "composer.send": "Send",
+  "composer.sending": "Thinking…",
+  "suggestions.title": "Try me with",
+  "suggestions.s1": "What technologies does he master?",
+  "suggestions.s2": "Tell me about his latest role",
+  "suggestions.s3": "How do I get in touch?",
+  "errors.rate": "Too many questions in a short time. Come back in a minute.",
+  "errors.cap": "The chat is resting for today. Meanwhile, see the FAQ.",
+  "errors.turnstile": "We couldn't verify you're human. Reload the page.",
+  "errors.generic": "Something went wrong on the server. Try again.",
+  "lang.toggle": "ES",
+  "footer.attribution": "Made with care by Roberto Rodríguez",
+  "fallback.title": "Frequently asked",
+  "speaker.user": "You",
+  "speaker.assistant": "Roberto"
+}

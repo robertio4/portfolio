@@ -1,0 +1,21 @@
+{
+  "intro.kicker": "IA Asistente · 24/7 a tu servicio",
+  "intro.name": "Roberto Rodríguez",
+  "intro.lede": "Pregunta lo que quieras sobre mi trayectoria, proyectos o forma de trabajar.",
+  "composer.placeholder": "Escribe tu pregunta…",
+  "composer.send": "Enviar",
+  "composer.sending": "Pensando…",
+  "suggestions.title": "Pruébame con",
+  "suggestions.s1": "¿Qué tecnologías domina?",
+  "suggestions.s2": "Cuéntame su experiencia más reciente",
+  "suggestions.s3": "¿Cómo le contacto?",
+  "errors.rate": "Has hecho demasiadas preguntas en poco tiempo. Vuelve en un minuto.",
+  "errors.cap": "El chat descansa por hoy. Mientras tanto, mira las preguntas frecuentes.",
+  "errors.turnstile": "No hemos podido verificar que eres humano. Recarga la página.",
+  "errors.generic": "Algo se ha torcido en el servidor. Inténtalo de nuevo.",
+  "lang.toggle": "EN",
+  "footer.attribution": "Made with care by Roberto Rodríguez",
+  "fallback.title": "Preguntas frecuentes",
+  "speaker.user": "Tú",
+  "speaker.assistant": "Roberto"
+}

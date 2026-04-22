@@ -1,0 +1,40 @@
+.suggested {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin-top: 1.2rem;
+}
+.suggested__label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.2em;
+  color: var(--paper-500);
+  text-transform: uppercase;
+}
+.suggested__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+.suggested__chip {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: var(--fs-sm);
+  color: var(--paper-200);
+  padding: 0.5rem 0.95rem;
+  border: 1px solid var(--ink-600);
+  border-radius: 999px;
+  transition: color var(--transition), border-color var(--transition), background var(--transition);
+}
+.suggested__chip:hover {
+  color: var(--ink-900);
+  background: var(--paper-100);
+  border-color: var(--paper-100);
+}
+.suggested__chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

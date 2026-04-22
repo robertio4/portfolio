@@ -1,0 +1,67 @@
+import { useEffect, useRef, useState } from 'react';
+import type { FormEvent, KeyboardEvent } from 'react';
+import { useI18n } from '../../i18n';
+
+import './Composer.css';
+
+interface Props {
+  onSend: (text: string) => void;
+  busy: boolean;
+  initialValue?: string;
+}
+
+export function Composer({ onSend, busy, initialValue }: Props) {
+  const { t } = useI18n();
+  const [value, setValue] = useState(initialValue ?? '');
+  const taRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (initialValue !== undefined) setValue(initialValue);
+  }, [initialValue]);
+
+  useEffect(() => {
+    const ta = taRef.current;
+    if (!ta) return;
+    ta.style.height = 'auto';
+    ta.style.height = `${Math.min(ta.scrollHeight, 240)}px`;
+  }, [value]);
+
+  function submit(e?: FormEvent) {
+    e?.preventDefault();
+    const trimmed = value.trim();
+    if (!trimmed || busy) return;
+    onSend(trimmed);
+    setValue('');
+  }
+
+  function onKey(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      submit();
+    }
+  }
+
+  return (
+    <form className="composer" onSubmit={submit}>
+      <span className="composer__prompt" aria-hidden>›</span>
+      <textarea
+        ref={taRef}
+        className="composer__input"
+        placeholder={t('composer.placeholder')}
+        value={value}
+        rows={1}
+        disabled={busy}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={onKey}
+        autoFocus
+      />
+      <button
+        type="submit"
+        className="composer__send"
+        disabled={busy || !value.trim()}
+      >
+        {busy ? t('composer.sending') : t('composer.send')}
+      </button>
+    </form>
+  );
+}

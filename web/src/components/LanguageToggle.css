@@ -1,0 +1,16 @@
+.lang-toggle {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.18em;
+  color: var(--paper-400);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition), border-color var(--transition);
+}
+.lang-toggle:hover { color: var(--paper-100); border-color: var(--ink-600); }
+.lang-toggle .is-active { color: var(--amber-500); }
+.lang-toggle .sep { color: var(--paper-500); }

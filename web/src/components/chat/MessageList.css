@@ -1,0 +1,46 @@
+.messages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2.4rem;
+}
+.messages__item {
+  animation: rise 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.messages__speaker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--paper-500);
+  margin-bottom: 0.6rem;
+}
+.messages__bullet {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--paper-500);
+  display: inline-block;
+}
+.messages__item--user .messages__bullet { background: var(--paper-200); }
+.messages__item--assistant .messages__bullet { background: var(--amber-500); }
+
+.messages__item--user .messages__body {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--paper-200);
+  border-left: 2px solid var(--paper-400);
+  padding-left: 1.1rem;
+}
+.messages__item--assistant .messages__body {
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  line-height: 1.55;
+  color: var(--paper-50);
+}
+.messages__hint { color: var(--paper-500); font-style: italic; }
