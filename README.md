@@ -5,7 +5,7 @@ Personal portfolio of Roberto Rodríguez. The entire surface is a bilingual chat
 ## Stack
 
 - **web** — Vite + React 18 + TypeScript. Editorial dark aesthetic (Fraunces + JetBrains Mono, amber accent).
-- **api** — Hono on Node. SSE streaming. Gemini 2.0 Flash for chat, `text-embedding-004` for embeddings. SQLite (via `better-sqlite3`) for metrics.
+- **api** — Hono on Node. SSE streaming. `gemini-3.1-flash-lite-preview` for chat, `gemini-embedding-001` (768-d) for embeddings. SQLite (via `better-sqlite3`) for metrics.
 
 Everything in-memory except metrics. Four defensive layers (Turnstile, per-IP rate limit, semantic cache, daily hard cap) keep the expected spend at $0.
 
@@ -29,6 +29,10 @@ pnpm dev                        # web :5173, api :8787
 ## Adding documents
 
 Drop any `.pdf`, `.md`, or `.txt` into `doc/`. Run `pnpm ingest` to regenerate the embeddings index. Commit `api/src/rag/index.json`.
+
+## Gemini models
+
+Pinned in [`api/src/llm/gemini.ts`](api/src/llm/gemini.ts). Free tier at time of writing only funds `gemini-3.1-flash-lite-preview` (500 RPD) and `gemini-embedding-001` (1 000 RPD). If the API returns 404, Google rotated the preview — list available IDs with `pnpm --filter api list-models` and update `CHAT_MODEL`.
 
 ## Admin dashboard
 
