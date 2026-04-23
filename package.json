@@ -9,10 +9,12 @@
     "start": "pnpm --filter api start",
     "ingest": "pnpm --filter api ingest",
     "db:migrate": "pnpm --filter api migrate",
-    "typecheck": "pnpm --filter web typecheck && pnpm --filter api typecheck"
+    "typecheck": "pnpm --filter web typecheck && pnpm --filter api typecheck",
+    "deploy:web": "pnpm --filter web build && wrangler deploy"
   },
   "devDependencies": {
-    "concurrently": "^9.0.1"
+    "concurrently": "^9.0.1",
+    "wrangler": "^4.0.0"
   },
   "packageManager": "pnpm@9.15.0",
   "engines": {
