@@ -17,5 +17,6 @@
   "footer.attribution": "Made with care by Roberto Rodríguez",
   "fallback.title": "Frequently asked",
   "speaker.user": "You",
-  "speaker.assistant": "Roberto"
+  "speaker.assistant": "Roberto",
+  "a11y.skipToContent": "Skip to content"
 }

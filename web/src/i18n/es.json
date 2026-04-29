@@ -1,5 +1,5 @@
 {
-  "intro.kicker": "IA Asistente · 24/7 a tu servicio",
+  "intro.kicker": "Asistente IA · 24/7 a tu servicio",
   "intro.name": "Roberto Rodríguez",
   "intro.lede": "Pregunta lo que quieras sobre mi trayectoria, proyectos o forma de trabajar.",
   "composer.placeholder": "Escribe tu pregunta…",
@@ -17,5 +17,6 @@
   "footer.attribution": "Made with care by Roberto Rodríguez",
   "fallback.title": "Preguntas frecuentes",
   "speaker.user": "Tú",
-  "speaker.assistant": "Roberto"
+  "speaker.assistant": "Roberto",
+  "a11y.skipToContent": "Saltar al contenido"
 }
