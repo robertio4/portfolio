@@ -11,7 +11,9 @@
     "ingest": "tsx scripts/ingest.ts",
     "migrate": "tsx scripts/migrate.ts",
     "list-models": "tsx scripts/list-models.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --import tsx/esm 'src/__tests__/**/*.test.ts'",
+    "test:watch": "node --test --watch --import tsx/esm 'src/__tests__/**/*.test.ts'"
   },
   "dependencies": {
     "@google/genai": "^0.7.0",

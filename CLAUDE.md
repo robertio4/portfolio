@@ -17,6 +17,7 @@ pnpm build                # build both packages
 pnpm db:migrate           # create SQLite schema at api/data/metrics.db
 pnpm ingest               # parse doc/*, embed chunks, write api/src/rag/index.json
 pnpm typecheck            # tsc --noEmit on both packages
+pnpm --filter api test    # run integration tests (node:test, 32 tests)
 pnpm --filter api list-models   # print Gemini model IDs the current key can call
 ```
 
