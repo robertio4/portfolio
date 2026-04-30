@@ -39,7 +39,7 @@ Two packages glued by pnpm workspaces:
 2. Upserts a row in `visitors` keyed by `SHA256(ip + IP_SALT)` — IPs are never stored in clear.
 3. Embeds the latest user message via Gemini `gemini-embedding-001` with `outputDimensionality: 768`.
 4. Checks the in-memory semantic cache (LRU 100, cosine ≥ 0.92, TTL 24h). On hit, streams the cached answer word-by-word.
-5. On miss, retrieves top-5 chunks from `index.json` (loaded once at boot) and calls `gemini-3.1-flash-lite-preview` with the system prompt + context. Streams deltas as SSE (`event: delta` / `event: done` / `event: error`).
+5. On miss, retrieves top-5 chunks from `index.json` (loaded once at boot) whose cosine similarity ≥ 0.5 (chunks below this threshold are discarded — the LLM then receives empty context and correctly says "I don't have that information" rather than hallucinating). Calls `gemini-3.1-flash-lite-preview` with system prompt + context. Streams deltas as SSE (`event: delta` / `event: done` / `event: error`).
 6. Always logs a row in `queries` (question, visitor_id, browser/OS/device, lang, cache_hit, status).
 
 ### RAG ingest (offline, run manually)
@@ -61,7 +61,7 @@ Preview models get renamed or sunset without notice. If the API returns 404 on c
 |-------|-------|---------|
 | Cloudflare Turnstile (invisible) | `middleware/turnstile.ts` + `hooks/useTurnstile.ts` | Bot challenge on every request |
 | Rate limit per IP | `middleware/rateLimit.ts` | In-memory Maps: 5/min + 30/day (env-tunable) |
-| Daily hard cap | `middleware/dailyCap.ts` | In-memory counter + SQLite reflection; over cap → 503 + frontend swaps to `FallbackFaq` |
+| Daily hard cap | `middleware/dailyCap.ts` | Reads SQLite `daily_counter` on every request (fast in-process read); over cap → 503 + frontend swaps to `FallbackFaq` |
 | Semantic cache | `rag/semanticCache.ts` | Repeated paraphrases cost 0 tokens |
 
 ### Admin surface (`/admin`)

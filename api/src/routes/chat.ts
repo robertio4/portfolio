@@ -6,27 +6,34 @@ import { SYSTEM_PROMPT, buildContext } from '../llm/prompt.js';
 import { retrieve } from '../rag/retrieve.js';
 import * as cache from '../rag/semanticCache.js';
 import { rateLimitMiddleware } from '../middleware/rateLimit.js';
-import { dailyCapMiddleware, bumpDailyCache } from '../middleware/dailyCap.js';
-import { turnstileMiddleware, getClientIp } from '../middleware/turnstile.js';
+import { dailyCapMiddleware } from '../middleware/dailyCap.js';
+import { turnstileMiddleware, getClientIp, type ChatVariables } from '../middleware/turnstile.js';
 import { hashIp, lookupGeo, parseUA } from '../metrics/geo.js';
 import { upsertVisitor, insertQuery, incrementDaily, todayKey } from '../metrics/log.js';
+import { log, newRequestId } from '../lib/logger.js';
 
-const messageSchema = z.object({
-  role: z.enum(['user', 'assistant']),
-  content: z.string().min(1),
-});
+const messageSchema = z
+  .object({
+    role: z.enum(['user', 'assistant']),
+    content: z.string().min(1).max(2000),
+  })
+  .strict();
 
-const bodySchema = z.object({
-  messages: z.array(messageSchema).min(1).max(40),
-  lang: z.enum(['es', 'en']).default('es'),
-  turnstileToken: z.string().min(1),
-});
+const bodySchema = z
+  .object({
+    messages: z.array(messageSchema).min(1).max(40),
+    lang: z.enum(['es', 'en']).default('es'),
+    turnstileToken: z.string().min(1),
+  })
+  .strict();
 
-export const chatRoute = new Hono();
+export type ChatRequestBody = z.infer<typeof bodySchema>;
+
+export const chatRoute = new Hono<{ Variables: ChatVariables }>();
 
 chatRoute.post('/', turnstileMiddleware, rateLimitMiddleware, dailyCapMiddleware, async (c) => {
-  // Body was parsed and stashed by the turnstile middleware; fall back if not.
-  const stashed = (c.req as unknown as { _parsedBody?: unknown })._parsedBody;
+  const rid = newRequestId();
+  const stashed = c.get('rawBody');
   const raw = stashed ?? (await c.req.json());
   const parsed = bodySchema.safeParse(raw);
   if (!parsed.success) {
@@ -36,7 +43,6 @@ chatRoute.post('/', turnstileMiddleware, rateLimitMiddleware, dailyCapMiddleware
   const lastUser = [...messages].reverse().find((m) => m.role === 'user');
   if (!lastUser) return c.json({ error: 'no_user_message' }, 400);
 
-  // Visitor + UA enrichment.
   const ip = getClientIp(c);
   const ipHash = hashIp(ip);
   const geo = lookupGeo(ip);
@@ -45,14 +51,12 @@ chatRoute.post('/', turnstileMiddleware, rateLimitMiddleware, dailyCapMiddleware
   const now = Date.now();
   const visitorId = upsertVisitor({ ipHash, geo, now });
   incrementDaily(todayKey(now));
-  bumpDailyCache();
 
-  // Embed query and check semantic cache.
   let queryEmb: number[];
   try {
     queryEmb = await embedText(lastUser.content);
   } catch (err) {
-    console.error('[chat] embed failed', err);
+    log.error('embed_failed', { rid, err: (err as Error).message });
     insertQuery({
       ts: now,
       visitorId,
@@ -87,12 +91,9 @@ chatRoute.post('/', turnstileMiddleware, rateLimitMiddleware, dailyCapMiddleware
     });
   }
 
-  // RAG retrieve.
   const top = retrieve(queryEmb, 5);
   const context = buildContext(top);
 
-  // Build conversation: Gemini contents are [{ role, parts: [{text}] }].
-  // System prompt + context goes via systemInstruction.
   const contents = messages.map((m) => ({
     role: m.role === 'assistant' ? 'model' : 'user',
     parts: [{ text: m.content }],
@@ -120,10 +121,10 @@ chatRoute.post('/', turnstileMiddleware, rateLimitMiddleware, dailyCapMiddleware
       await stream.writeSSE({ event: 'done', data: JSON.stringify({ cached: false }) });
     } catch (err) {
       status = 502;
-      console.error('[chat] gemini failed', err);
+      log.error('gemini_failed', { rid, err: (err as Error).message });
       await stream.writeSSE({
         event: 'error',
-        data: JSON.stringify({ message: 'llm_failed' }),
+        data: JSON.stringify({ message: 'llm_failed', rid }),
       });
     } finally {
       if (fullAnswer.trim().length > 0) {

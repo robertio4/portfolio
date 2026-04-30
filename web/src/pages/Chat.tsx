@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { LanguageToggle } from '../components/LanguageToggle';
 import { Composer } from '../components/chat/Composer';
 import { MessageList } from '../components/chat/MessageList';
@@ -15,6 +15,16 @@ export function Chat() {
   const { messages, streaming, error, send } = useChatStream();
   const { containerRef, getToken } = useTurnstile();
   const [composerSeed, setComposerSeed] = useState<string | undefined>(undefined);
+
+  // Seed composer from `?q=` query param (e.g. when arriving via SearchAction).
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('q');
+    if (q && q.trim() && messages.length === 0) {
+      setComposerSeed(q);
+      window.history.replaceState(null, '', '/');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const hasConversation = messages.length > 0;
   const capBlocked = error === 'cap';
@@ -35,45 +45,56 @@ export function Chat() {
   }
 
   return (
-    <main className="chat">
-      <header className="chat__header rise rise-1">
-        <span className="chat__mark" aria-hidden>
-          {/* Monogram */}
-          RR
-        </span>
-        <LanguageToggle />
-      </header>
+    <>
+      <a href="#main" className="skip-link">
+        {t('a11y.skipToContent')}
+      </a>
+      <main id="main" className="chat">
+        <header className="chat__header rise rise-1">
+          <span className="chat__mark" aria-hidden>
+            {/* Monogram */}
+            RR
+          </span>
+          <LanguageToggle />
+        </header>
 
-      <div className="chat__column">
-        {!hasConversation && (
-          <section className="intro rise">
-            <span className="intro__kicker">{t('intro.kicker')}</span>
-            <h1 className="intro__name">{t('intro.name')}</h1>
-            <p className="intro__lede rise rise-2">{t('intro.lede')}</p>
-          </section>
-        )}
-
-        {hasConversation && <MessageList messages={messages} streaming={streaming} />}
-
-        {error && (
-          <div className="chat__error rise" role="alert">
-            {t(`errors.${error}` as const)}
-          </div>
-        )}
-
-        {capBlocked && <FallbackFaq />}
-
-        <div className="chat__composer rise rise-4">
-          <Composer onSend={handleSend} busy={streaming || capBlocked} initialValue={composerSeed} />
-          {!hasConversation && !capBlocked && (
-            <SuggestedPrompts onPick={handlePick} disabled={streaming} />
+        <div className="chat__column">
+          {!hasConversation && (
+            <section className="intro rise">
+              <span className="intro__kicker">{t('intro.kicker')}</span>
+              <h1 className="intro__name">{t('intro.name')}</h1>
+              <p className="intro__lede rise rise-2">{t('intro.lede')}</p>
+            </section>
           )}
+
+          {hasConversation && <MessageList messages={messages} streaming={streaming} />}
+
+          {error && (
+            <div className="chat__error rise" role="alert">
+              {t(`errors.${error}` as const)}
+            </div>
+          )}
+
+          {capBlocked && <FallbackFaq />}
+
+          <div className="chat__composer rise rise-4">
+            <Composer onSend={handleSend} busy={streaming || capBlocked} initialValue={composerSeed} />
+            {!hasConversation && !capBlocked && (
+              <SuggestedPrompts onPick={handlePick} disabled={streaming} />
+            )}
+          </div>
         </div>
-      </div>
 
-      <div ref={containerRef} className="chat__turnstile" aria-hidden />
+        <div
+          ref={containerRef}
+          className="chat__turnstile"
+          aria-hidden
+          tabIndex={-1}
+          {...({ inert: '' } as { inert: string })}
+        />
 
-      <footer className="chat__footer">{t('footer.attribution')}</footer>
-    </main>
+        <footer className="chat__footer">{t('footer.attribution')}</footer>
+      </main>
+    </>
   );
 }

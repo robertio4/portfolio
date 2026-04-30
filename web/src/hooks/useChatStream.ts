@@ -32,8 +32,12 @@ export function useChatStream() {
         role: 'assistant',
         content: '',
       };
-      const next = [...messages, userMsg, assistantMsg];
-      setMessages(next);
+      let outgoing: Message[] = [];
+      setMessages((prev) => {
+        const next = [...prev, userMsg, assistantMsg];
+        outgoing = next;
+        return next;
+      });
       setError(null);
       setStreaming(true);
 
@@ -45,7 +49,7 @@ export function useChatStream() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            messages: next
+            messages: outgoing
               .filter((m) => m.id !== assistantMsg.id && m.content.trim().length > 0)
               .map(({ role, content }) => ({ role, content })),
             lang,
@@ -103,7 +107,7 @@ export function useChatStream() {
         abortRef.current = null;
       }
     },
-    [messages],
+    [],
   );
 
   const stop = useCallback(() => abortRef.current?.abort(), []);

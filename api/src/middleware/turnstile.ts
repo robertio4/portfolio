@@ -1,4 +1,4 @@
-import type { MiddlewareHandler } from 'hono';
+import type { Context, MiddlewareHandler } from 'hono';
 import { env } from '../env.js';
 
 const VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
@@ -8,13 +8,20 @@ interface VerifyResponse {
   'error-codes'?: string[];
 }
 
-export const turnstileMiddleware: MiddlewareHandler = async (c, next) => {
+export interface ChatVariables {
+  rawBody: unknown;
+}
+
+export const turnstileMiddleware: MiddlewareHandler<{ Variables: ChatVariables }> = async (
+  c,
+  next,
+) => {
   let token: string | undefined;
+  let body: unknown;
   try {
-    const body = await c.req.json<{ turnstileToken?: string }>();
-    token = body?.turnstileToken;
-    // Re-attach the body so downstream handlers can read it again.
-    (c.req as unknown as { _parsedBody?: unknown })._parsedBody = body;
+    body = await c.req.json<{ turnstileToken?: string }>();
+    token = (body as { turnstileToken?: string } | undefined)?.turnstileToken;
+    c.set('rawBody', body);
   } catch {
     // Non-JSON body — handler will deal with it.
   }
@@ -36,13 +43,12 @@ export const turnstileMiddleware: MiddlewareHandler = async (c, next) => {
   await next();
 };
 
-export function getClientIp(c: Parameters<MiddlewareHandler>[0]): string {
+export function getClientIp(c: Context): string {
   const cf = c.req.header('cf-connecting-ip');
   if (cf) return cf;
   const xff = c.req.header('x-forwarded-for');
   if (xff) return xff.split(',')[0]!.trim();
   const xri = c.req.header('x-real-ip');
   if (xri) return xri;
-  // Fall back to a deterministic placeholder so dev still works.
   return '127.0.0.1';
 }

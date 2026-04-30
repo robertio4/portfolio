@@ -56,12 +56,32 @@ export interface Retrieved {
   score: number;
 }
 
+// Below this similarity, the corpus has no meaningful match for the query and
+// passing top-k anyway only encourages the LLM to hallucinate. Empty context
+// + the system prompt's "if not in context, say so" rule produces a cleaner
+// "I don't know" response.
+const MIN_SCORE = 0.5;
+
 export function retrieve(queryVec: number[], k = 5): Retrieved[] {
   if (!indexLoaded) loadIndex();
   if (chunks.length === 0) return [];
   const scored = chunks.map((chunk) => ({ chunk, score: cosine(queryVec, chunk.vector) }));
   scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, k);
+  if ((scored[0]?.score ?? 0) < MIN_SCORE) return [];
+  return scored.slice(0, k).filter((r) => r.score >= MIN_SCORE);
+}
+
+export function isIndexLoaded(): boolean {
+  return indexLoaded;
+}
+
+export function indexSize(): number {
+  return chunks.length;
+}
+
+export function getChunks(): ReadonlyArray<Chunk> {
+  if (!indexLoaded) loadIndex();
+  return chunks;
 }
 
 export { cosine };

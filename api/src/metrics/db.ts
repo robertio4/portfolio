@@ -3,8 +3,8 @@ import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { env } from '../env.js';
 
-const dbPath = resolve(env.SQLITE_PATH);
-mkdirSync(dirname(dbPath), { recursive: true });
+const dbPath = env.SQLITE_PATH === ':memory:' ? ':memory:' : resolve(env.SQLITE_PATH);
+if (dbPath !== ':memory:') mkdirSync(dirname(dbPath), { recursive: true });
 
 export const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');

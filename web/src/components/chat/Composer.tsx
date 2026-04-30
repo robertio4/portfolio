@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { FormEvent, KeyboardEvent } from 'react';
 import { useI18n } from '../../i18n';
 
@@ -19,7 +19,8 @@ export function Composer({ onSend, busy, initialValue }: Props) {
     if (initialValue !== undefined) setValue(initialValue);
   }, [initialValue]);
 
-  useEffect(() => {
+  // Auto-grow textarea on value change. Layout effect avoids a flash.
+  useLayoutEffect(() => {
     const ta = taRef.current;
     if (!ta) return;
     ta.style.height = 'auto';
@@ -41,20 +42,30 @@ export function Composer({ onSend, busy, initialValue }: Props) {
     }
   }
 
+  const placeholder = t('composer.placeholder');
+
   return (
     <form className="composer" onSubmit={submit}>
       <span className="composer__prompt" aria-hidden>›</span>
+      <label htmlFor="composer-input" className="composer__label sr-only">
+        {placeholder}
+      </label>
       <textarea
+        id="composer-input"
         ref={taRef}
         className="composer__input"
-        placeholder={t('composer.placeholder')}
+        placeholder={placeholder}
         value={value}
         rows={1}
         disabled={busy}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={onKey}
+        aria-describedby="composer-help"
         autoFocus
       />
+      <span id="composer-help" className="sr-only">
+        {placeholder}
+      </span>
       <button
         type="submit"
         className="composer__send"
