@@ -60,12 +60,8 @@ export function Composer({ onSend, busy, initialValue }: Props) {
         disabled={busy}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={onKey}
-        aria-describedby="composer-help"
         autoFocus
       />
-      <span id="composer-help" className="sr-only">
-        {placeholder}
-      </span>
       <button
         type="submit"
         className="composer__send"
