@@ -4,13 +4,12 @@ import { fileURLToPath } from 'node:url';
 import pdfParse from 'pdf-parse';
 import { embedBatch, EMBED_MODEL } from '../src/llm/gemini.js';
 import type { Chunk } from '../src/rag/retrieve.js';
+import { splitterFor } from './splitters.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DOC_DIR = resolve(__dirname, '../../doc');
 const OUT_PATH = resolve(__dirname, '../src/rag/index.json');
 
-const CHARS_PER_CHUNK = 1800;
-const OVERLAP = 200;
 const BATCH = 100;
 
 interface DocFile {
@@ -46,26 +45,6 @@ function normalize(t: string): string {
   return t.replace(/\r\n/g, '\n').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
 }
 
-function chunkText(text: string): string[] {
-  const out: string[] = [];
-  let i = 0;
-  while (i < text.length) {
-    const end = Math.min(text.length, i + CHARS_PER_CHUNK);
-    let cut = end;
-    if (end < text.length) {
-      const lastBreak = text.lastIndexOf('\n', end);
-      const lastSpace = text.lastIndexOf(' ', end);
-      cut = Math.max(lastBreak, lastSpace);
-      if (cut <= i + CHARS_PER_CHUNK / 2) cut = end;
-    }
-    const piece = text.slice(i, cut).trim();
-    if (piece.length > 0) out.push(piece);
-    if (cut >= text.length) break;
-    i = Math.max(cut - OVERLAP, i + 1);
-  }
-  return out;
-}
-
 async function main() {
   const files = listDocs(DOC_DIR);
   if (files.length === 0) {
@@ -77,8 +56,9 @@ async function main() {
 
   const chunks: Chunk[] = [];
   for (const path of files) {
+    const ext = extname(path).toLowerCase();
     const doc = await readDoc(path);
-    const pieces = chunkText(doc.text);
+    const pieces = splitterFor(ext).split(doc.text);
     console.log(`  ${path}: ${pieces.length} chunk(s)`);
     pieces.forEach((text, idx) => {
       chunks.push({
