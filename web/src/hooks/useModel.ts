@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import type { PublicModelEntry } from '../lib/modelsApi';
 
 const STORAGE_KEY = 'portfolio.model';
-const DEFAULT_MODEL_ID = 'gemini-flash-lite';
+const DEFAULT_MODEL_ID = 'llama-8b';
 
 function readStorage(): string {
   try {

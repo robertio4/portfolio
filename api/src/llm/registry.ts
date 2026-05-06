@@ -13,50 +13,18 @@ export interface ModelEntry {
 }
 
 export const MODEL_REGISTRY: ModelEntry[] = [
-  {
-    id: 'gemini-flash-lite',
-    provider: 'gemini',
-    providerModelId: 'gemini-3.1-flash-lite-preview',
-    label: 'Gemini Flash Lite',
-    description: {
-      en: 'Lightweight Gemini model. Fastest responses.',
-      es: 'Modelo Gemini ligero. Respuestas más rápidas.',
-    },
-    limits: { rpm: 15, rpd: 500 },
-    isDefault: true,
-  },
-  {
-    id: 'gemini-flash',
-    provider: 'gemini',
-    providerModelId: 'gemini-2.5-flash-lite',
-    label: 'Gemini 2.5 Flash Lite',
-    description: {
-      en: "Google's latest lightweight Gemini model.",
-      es: 'El último modelo Gemini ligero de Google.',
-    },
-    limits: { rpm: 15, rpd: 500 },
-  },
+  // ── Groq LPU (fastest inference hardware) ──────────────────────────
   {
     id: 'llama-8b',
     provider: 'groq',
     providerModelId: 'llama-3.1-8b-instant',
     label: 'Llama 3.1 8B',
     description: {
-      en: 'Fast Llama model via Groq LPU chips.',
-      es: 'Llama rápido en chips LPU de Groq.',
+      en: 'Smallest and fastest model. Ideal for quick questions.',
+      es: 'El modelo más pequeño y rápido. Ideal para preguntas rápidas.',
     },
     limits: { rpm: 30, rpd: 14400 },
-  },
-  {
-    id: 'llama-70b',
-    provider: 'groq',
-    providerModelId: 'llama-3.3-70b-versatile',
-    label: 'Llama 3.3 70B',
-    description: {
-      en: 'Powerful 70B model. Best quality on Groq.',
-      es: 'Modelo 70B potente. Mejor calidad en Groq.',
-    },
-    limits: { rpm: 30, rpd: 1000 },
+    isDefault: true,
   },
   {
     id: 'llama-4-scout',
@@ -64,22 +32,56 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     providerModelId: 'meta-llama/llama-4-scout-17b-16e-instruct',
     label: 'Llama 4 Scout',
     description: {
-      en: "Meta's latest multimodal model. Fast and efficient.",
-      es: 'El último modelo multimodal de Meta. Rápido y eficiente.',
+      en: "Meta's latest model. Great balance of speed and quality.",
+      es: 'El último modelo de Meta. Buen equilibrio entre velocidad y calidad.',
     },
     limits: { rpm: 30, rpd: 1000 },
   },
   {
-    id: 'qwen3-32b',
+    id: 'llama-70b',
     provider: 'groq',
-    providerModelId: 'qwen/qwen3-32b',
-    label: 'Qwen3 32B',
+    providerModelId: 'llama-3.3-70b-versatile',
+    label: 'Llama 3.3 70B',
     description: {
-      en: 'Reasoning-capable 32B model from Alibaba.',
-      es: 'Modelo 32B con razonamiento de Alibaba.',
+      en: 'Powerful 70B model accelerated by Groq LPU chips.',
+      es: 'Modelo 70B potente acelerado por chips LPU de Groq.',
     },
     limits: { rpm: 30, rpd: 1000 },
-    stripThinking: true,
+  },
+  // ── Gemini (Google AI) ─────────────────────────────────────────────
+  {
+    id: 'gemini-flash-lite',
+    provider: 'gemini',
+    providerModelId: 'gemini-3.1-flash-lite-preview',
+    label: 'Gemini Flash Lite',
+    description: {
+      en: "Google's lightweight Gemini model. Fast and efficient.",
+      es: 'Modelo Gemini ligero de Google. Rápido y eficiente.',
+    },
+    limits: { rpm: 15, rpd: 500 },
+  },
+  {
+    id: 'gemini-flash',
+    provider: 'gemini',
+    providerModelId: 'gemini-2.5-flash-lite',
+    label: 'Gemini 2.5 Flash Lite',
+    description: {
+      en: "Google's newest lightweight Gemini model.",
+      es: 'El modelo Gemini ligero más reciente de Google.',
+    },
+    limits: { rpm: 15, rpd: 500 },
+  },
+  // ── OpenRouter free (larger models, more variable latency) ─────────
+  {
+    id: 'gpt-oss-120b',
+    provider: 'openrouter',
+    providerModelId: 'openai/gpt-oss-120b:free',
+    label: 'GPT OSS 120B',
+    description: {
+      en: "OpenAI's open-source 120B model via OpenRouter.",
+      es: 'Modelo open-source 120B de OpenAI vía OpenRouter.',
+    },
+    limits: { rpm: 20, rpd: 200 },
   },
   {
     id: 'gemma4-31b',
@@ -89,17 +91,6 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     description: {
       en: "Google's Gemma 4 31B via OpenRouter.",
       es: 'Gemma 4 31B de Google vía OpenRouter.',
-    },
-    limits: { rpm: 20, rpd: 200 },
-  },
-  {
-    id: 'gpt-oss-120b',
-    provider: 'openrouter',
-    providerModelId: 'openai/gpt-oss-120b:free',
-    label: 'GPT OSS 120B',
-    description: {
-      en: "OpenAI's open-source 120B model via OpenRouter.",
-      es: 'Modelo open-source 120B de OpenAI vía OpenRouter.',
     },
     limits: { rpm: 20, rpd: 200 },
   },
@@ -114,16 +105,18 @@ export const MODEL_REGISTRY: ModelEntry[] = [
     },
     limits: { rpm: 20, rpd: 200 },
   },
+  // ── Groq reasoning (slowest — generates thinking tokens internally) ─
   {
-    id: 'gemma4-26b',
-    provider: 'openrouter',
-    providerModelId: 'google/gemma-4-26b-a4b-it:free',
-    label: 'Gemma 4 26B (MoE)',
+    id: 'qwen3-32b',
+    provider: 'groq',
+    providerModelId: 'qwen/qwen3-32b',
+    label: 'Qwen3 32B',
     description: {
-      en: "Google's Gemma 4 mixture-of-experts model via OpenRouter.",
-      es: 'Modelo Gemma 4 mezcla de expertos de Google vía OpenRouter.',
+      en: 'Reasoning model from Alibaba. Slower but more thorough.',
+      es: 'Modelo de razonamiento de Alibaba. Lento pero muy preciso.',
     },
-    limits: { rpm: 20, rpd: 200 },
+    limits: { rpm: 30, rpd: 1000 },
+    stripThinking: true,
   },
 ];
 
