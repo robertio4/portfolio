@@ -16,6 +16,7 @@
   "errors.model_rate": "This model reached its rate limit.",
   "errors.model_rate_try": "Try another:",
   "model.selector.label": "Model",
+  "cv.download": "Download CV",
   "lang.toggle": "ES",
   "footer.attribution": "Made with care by Roberto Rodríguez",
   "fallback.title": "Frequently asked",

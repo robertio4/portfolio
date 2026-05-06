@@ -54,7 +54,9 @@
   line-height: 0.95;
   letter-spacing: -0.04em;
   margin: 0 0 1.5rem;
-  font-variation-settings: 'opsz' 144, 'SOFT' 0;
+  font-variation-settings:
+    "opsz" 144,
+    "SOFT" 0;
 }
 .intro__lede {
   font-family: var(--font-display);
@@ -63,6 +65,27 @@
   color: var(--paper-200);
   max-width: 32ch;
   margin: 0;
+}
+
+.cv-download {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--paper-400);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 1.6rem;
+  padding: 0.4rem 0.7rem;
+  padding-left: 0;
+  border: none;
+  text-decoration: none;
+  letter-spacing: 0.06em;
+  transition: color var(--transition);
+}
+.cv-download:hover,
+.cv-download:focus-visible {
+  color: var(--amber-500);
+  outline: none;
 }
 
 .chat__error {
@@ -95,14 +118,14 @@
   padding: 0.15rem 0.45rem;
   cursor: pointer;
   margin-left: 0.35rem;
-  transition: background var(--transition), color var(--transition);
+  transition:
+    background var(--transition),
+    color var(--transition);
 }
 .chat__error-chip:hover {
   background: var(--amber-500);
   color: var(--ink-900);
 }
-
-.chat__composer { margin-top: 2.2rem; }
 
 .chat__turnstile {
   position: fixed;

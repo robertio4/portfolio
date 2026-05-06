@@ -119,6 +119,18 @@ export function Chat() {
               <span className="intro__kicker">{t('intro.kicker')}</span>
               <h1 className="intro__name">{t('intro.name')}</h1>
               <p className="intro__lede rise rise-2">{t('intro.lede')}</p>
+              <a
+                href="/cv.pdf"
+                download="Roberto_Rodriguez_CV.pdf"
+                className="cv-download rise rise-3"
+                aria-label={t('cv.download')}
+              >
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden="true">
+                  <path d="M6.5 1v7M3.5 5.5l3 3 3-3M2 11h9" stroke="currentColor"
+                        strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                {t('cv.download')}
+              </a>
             </section>
           )}
 

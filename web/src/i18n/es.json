@@ -16,6 +16,7 @@
   "errors.model_rate": "Este modelo ha alcanzado su límite.",
   "errors.model_rate_try": "Prueba otro:",
   "model.selector.label": "Modelo",
+  "cv.download": "Descargar CV",
   "lang.toggle": "EN",
   "footer.attribution": "Made with care by Roberto Rodríguez",
   "fallback.title": "Preguntas frecuentes",
