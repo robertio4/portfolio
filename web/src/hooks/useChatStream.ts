@@ -10,12 +10,19 @@ export interface Message {
   content: string;
 }
 
-export type ChatError = 'rate' | 'cap' | 'turnstile' | 'generic' | null;
+export type ChatError =
+  | { kind: 'rate' }
+  | { kind: 'cap' }
+  | { kind: 'turnstile' }
+  | { kind: 'generic' }
+  | { kind: 'model_rate'; model: string; retryWith: string[] }
+  | null;
 
 interface SendArgs {
   text: string;
   lang: Lang;
   turnstileToken: string;
+  model: string;
 }
 
 export function useChatStream() {
@@ -25,7 +32,7 @@ export function useChatStream() {
   const abortRef = useRef<AbortController | null>(null);
 
   const send = useCallback(
-    async ({ text, lang, turnstileToken }: SendArgs) => {
+    async ({ text, lang, turnstileToken, model }: SendArgs) => {
       const userMsg: Message = { id: `u-${Date.now()}`, role: 'user', content: text };
       const assistantMsg: Message = {
         id: `a-${Date.now()}`,
@@ -54,15 +61,30 @@ export function useChatStream() {
               .map(({ role, content }) => ({ role, content })),
             lang,
             turnstileToken,
+            model,
           }),
           signal: ctrl.signal,
         });
 
         if (!res.ok || !res.body) {
-          if (res.status === 429) setError('rate');
-          else if (res.status === 503) setError('cap');
-          else if (res.status === 403) setError('turnstile');
-          else setError('generic');
+          if (res.status === 429) {
+            const body = await res.json().catch(() => ({})) as {
+              error?: string;
+              model?: string;
+              retryWith?: string[];
+            };
+            if (body.error === 'model_rate_limit' && body.model) {
+              setError({ kind: 'model_rate', model: body.model, retryWith: body.retryWith ?? [] });
+            } else {
+              setError({ kind: 'rate' });
+            }
+          } else if (res.status === 503) {
+            setError({ kind: 'cap' });
+          } else if (res.status === 403) {
+            setError({ kind: 'turnstile' });
+          } else {
+            setError({ kind: 'generic' });
+          }
           setMessages((m) => m.filter((x) => x.id !== assistantMsg.id));
           setStreaming(false);
           return;
@@ -92,7 +114,7 @@ export function useChatStream() {
                   m.map((x) => (x.id === assistantMsg.id ? { ...x, content: acc } : x)),
                 );
               } else if (eventType === 'error') {
-                setError('generic');
+                setError({ kind: 'generic' });
               }
             } catch {
               // ignore malformed event
@@ -100,7 +122,7 @@ export function useChatStream() {
           }
         }
       } catch (err) {
-        if ((err as Error).name !== 'AbortError') setError('generic');
+        if ((err as Error).name !== 'AbortError') setError({ kind: 'generic' });
       } finally {
         setMessages((m) => m.filter((x) => !(x.id === assistantMsg.id && x.content.length === 0)));
         setStreaming(false);

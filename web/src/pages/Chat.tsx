@@ -4,9 +4,12 @@ import { Composer } from '../components/chat/Composer';
 import { MessageList } from '../components/chat/MessageList';
 import { SuggestedPrompts } from '../components/chat/SuggestedPrompts';
 import { FallbackFaq } from '../components/chat/FallbackFaq';
+import { ModelSelector } from '../components/chat/ModelSelector';
 import { useChatStream } from '../hooks/useChatStream';
 import { useTurnstile } from '../hooks/useTurnstile';
+import { useModel } from '../hooks/useModel';
 import { useI18n } from '../i18n';
+import { fetchModels, type PublicModelEntry } from '../lib/modelsApi';
 
 import './Chat.css';
 
@@ -15,6 +18,14 @@ export function Chat() {
   const { messages, streaming, error, send } = useChatStream();
   const { containerRef, getToken } = useTurnstile();
   const [composerSeed, setComposerSeed] = useState<string | undefined>(undefined);
+  const [models, setModels] = useState<PublicModelEntry[]>([]);
+  const { modelId, setModelId } = useModel(models);
+
+  useEffect(() => {
+    fetchModels()
+      .then(setModels)
+      .catch(() => {/* use empty list — ModelSelector renders nothing */});
+  }, []);
 
   // Seed composer from `?q=` query param (e.g. when arriving via SearchAction).
   useEffect(() => {
@@ -27,12 +38,12 @@ export function Chat() {
   }, []);
 
   const hasConversation = messages.length > 0;
-  const capBlocked = error === 'cap';
+  const capBlocked = error?.kind === 'cap';
 
   async function handleSend(text: string) {
     try {
       const token = await getToken();
-      send({ text, lang, turnstileToken: token });
+      send({ text, lang, turnstileToken: token, model: modelId });
       setComposerSeed('');
     } catch {
       // surface as generic — user can retry
@@ -42,6 +53,47 @@ export function Chat() {
 
   function handlePick(text: string) {
     setComposerSeed(text);
+  }
+
+  function renderError() {
+    if (!error) return null;
+    if (error.kind === 'model_rate') {
+      return (
+        <div className="chat__error rise" role="alert">
+          <span>{t('errors.model_rate')}</span>
+          {error.retryWith.length > 0 && (
+            <span className="chat__error-retry">
+              {' '}{t('errors.model_rate_try')}{' '}
+              {error.retryWith.map((id) => {
+                const m = models.find((x) => x.id === id);
+                return (
+                  <button
+                    key={id}
+                    className="chat__error-chip"
+                    onClick={() => setModelId(id)}
+                    type="button"
+                  >
+                    {m?.label ?? id}
+                  </button>
+                );
+              })}
+            </span>
+          )}
+        </div>
+      );
+    }
+    const key = error.kind === 'rate'
+      ? 'errors.rate'
+      : error.kind === 'cap'
+      ? 'errors.cap'
+      : error.kind === 'turnstile'
+      ? 'errors.turnstile'
+      : 'errors.generic';
+    return (
+      <div className="chat__error rise" role="alert">
+        {t(key)}
+      </div>
+    );
   }
 
   return (
@@ -55,7 +107,10 @@ export function Chat() {
             {/* Monogram */}
             RR
           </span>
-          <LanguageToggle />
+          <div className="chat__controls">
+            <ModelSelector models={models} selectedId={modelId} onChange={setModelId} />
+            <LanguageToggle />
+          </div>
         </header>
 
         <div className="chat__column">
@@ -69,11 +124,7 @@ export function Chat() {
 
           {hasConversation && <MessageList messages={messages} streaming={streaming} />}
 
-          {error && (
-            <div className="chat__error rise" role="alert">
-              {t(`errors.${error}` as const)}
-            </div>
-          )}
+          {renderError()}
 
           {capBlocked && <FallbackFaq />}
 

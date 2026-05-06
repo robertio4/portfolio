@@ -75,6 +75,33 @@
   font-size: var(--fs-sm);
 }
 
+.chat__controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.chat__error-retry {
+  display: inline;
+}
+
+.chat__error-chip {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--amber-500);
+  background: transparent;
+  border: 1px solid var(--amber-500);
+  border-radius: var(--radius-sm);
+  padding: 0.15rem 0.45rem;
+  cursor: pointer;
+  margin-left: 0.35rem;
+  transition: background var(--transition), color var(--transition);
+}
+.chat__error-chip:hover {
+  background: var(--amber-500);
+  color: var(--ink-900);
+}
+
 .chat__composer { margin-top: 2.2rem; }
 
 .chat__turnstile {

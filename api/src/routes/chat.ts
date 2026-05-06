@@ -1,13 +1,16 @@
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import { z } from 'zod';
-import { ai, CHAT_MODEL, embedText } from '../llm/gemini.js';
+import { embedText } from '../llm/gemini.js';
 import { SYSTEM_PROMPT, buildContext } from '../llm/prompt.js';
+import { MODEL_REGISTRY, DEFAULT_MODEL, findModel, toPublic } from '../llm/registry.js';
+import { getAdapter } from '../llm/adapters/index.js';
 import { retrieve } from '../rag/retrieve.js';
 import * as cache from '../rag/semanticCache.js';
 import { rateLimitMiddleware } from '../middleware/rateLimit.js';
 import { dailyCapMiddleware } from '../middleware/dailyCap.js';
 import { turnstileMiddleware, getClientIp, type ChatVariables } from '../middleware/turnstile.js';
+import { checkModelRateLimit } from '../middleware/modelRateLimit.js';
 import { hashIp, lookupGeo, parseUA } from '../metrics/geo.js';
 import { upsertVisitor, insertQuery, incrementDaily, todayKey } from '../metrics/log.js';
 import { log, newRequestId } from '../lib/logger.js';
@@ -24,12 +27,18 @@ const bodySchema = z
     messages: z.array(messageSchema).min(1).max(40),
     lang: z.enum(['es', 'en']).default('es'),
     turnstileToken: z.string().min(1),
+    model: z.string().optional(),
   })
   .strict();
 
 export type ChatRequestBody = z.infer<typeof bodySchema>;
 
 export const chatRoute = new Hono<{ Variables: ChatVariables }>();
+
+// GET /chat/models — returns public model list, no auth required
+chatRoute.get('/models', (c) => {
+  return c.json(MODEL_REGISTRY.map(toPublic));
+});
 
 chatRoute.post('/', turnstileMiddleware, rateLimitMiddleware, dailyCapMiddleware, async (c) => {
   const rid = newRequestId();
@@ -43,7 +52,20 @@ chatRoute.post('/', turnstileMiddleware, rateLimitMiddleware, dailyCapMiddleware
   const lastUser = [...messages].reverse().find((m) => m.role === 'user');
   if (!lastUser) return c.json({ error: 'no_user_message' }, 400);
 
+  // Resolve model from request or default
+  const rawModelId = parsed.data.model ?? DEFAULT_MODEL.id;
+  const modelEntry = findModel(rawModelId);
+  if (!modelEntry) {
+    return c.json({ error: 'unknown_model', model: rawModelId }, 400);
+  }
+
   const ip = getClientIp(c);
+
+  const limitError = checkModelRateLimit(ip, modelEntry.id);
+  if (limitError) {
+    return c.json(limitError, 429);
+  }
+
   const ipHash = hashIp(ip);
   const geo = lookupGeo(ip);
   const ua = parseUA(c.req.header('user-agent'));
@@ -66,6 +88,7 @@ chatRoute.post('/', turnstileMiddleware, rateLimitMiddleware, dailyCapMiddleware
       referrer,
       cacheHit: false,
       status: 502,
+      model: modelEntry.id,
     });
     return c.json({ error: 'embed_failed' }, 502);
   }
@@ -81,6 +104,7 @@ chatRoute.post('/', turnstileMiddleware, rateLimitMiddleware, dailyCapMiddleware
       referrer,
       cacheHit: true,
       status: 200,
+      model: modelEntry.id,
     });
     return streamSSE(c, async (stream) => {
       for (const word of cached.split(/(\s+)/)) {
@@ -93,35 +117,33 @@ chatRoute.post('/', turnstileMiddleware, rateLimitMiddleware, dailyCapMiddleware
 
   const top = retrieve(queryEmb, 5);
   const context = buildContext(top);
+  const systemInstruction = `${SYSTEM_PROMPT}\n\n=== Contexto sobre Roberto ===\n${context}`;
 
   const contents = messages.map((m) => ({
-    role: m.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: m.content }],
+    role: m.role as 'user' | 'assistant',
+    text: m.content,
   }));
+
+  const adapter = getAdapter(modelEntry.provider);
 
   return streamSSE(c, async (stream) => {
     let fullAnswer = '';
     let status = 200;
     try {
-      const result = await ai.models.generateContentStream({
-        model: CHAT_MODEL,
+      for await (const delta of adapter.stream({
+        providerModelId: modelEntry.providerModelId,
         contents,
-        config: {
-          systemInstruction: `${SYSTEM_PROMPT}\n\n=== Contexto sobre Roberto ===\n${context}`,
-          maxOutputTokens: 600,
-          temperature: 0.4,
-        },
-      });
-      for await (const chunk of result) {
-        const delta = chunk.text;
-        if (!delta) continue;
+        systemInstruction,
+        maxTokens: 600,
+        temperature: 0.4,
+      })) {
         fullAnswer += delta;
         await stream.writeSSE({ event: 'delta', data: JSON.stringify({ delta }) });
       }
       await stream.writeSSE({ event: 'done', data: JSON.stringify({ cached: false }) });
     } catch (err) {
       status = 502;
-      log.error('gemini_failed', { rid, err: (err as Error).message });
+      log.error('llm_failed', { rid, model: modelEntry.id, err: (err as Error).message });
       await stream.writeSSE({
         event: 'error',
         data: JSON.stringify({ message: 'llm_failed', rid }),
@@ -145,6 +167,7 @@ chatRoute.post('/', turnstileMiddleware, rateLimitMiddleware, dailyCapMiddleware
         referrer,
         cacheHit: false,
         status,
+        model: modelEntry.id,
       });
     }
   });

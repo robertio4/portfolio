@@ -21,7 +21,9 @@
     "better-sqlite3": "^11.5.0",
     "dotenv": "^16.4.5",
     "geoip-lite": "^1.4.10",
+    "groq-sdk": "^1.1.2",
     "hono": "^4.6.0",
+    "openai": "^6.36.0",
     "pdf-parse": "^1.1.1",
     "ua-parser-js": "^2.0.0",
     "zod": "^3.23.8"

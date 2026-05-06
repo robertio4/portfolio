@@ -49,4 +49,10 @@ export function initDb(): void {
       count INTEGER NOT NULL DEFAULT 0
     );
   `);
+  // Idempotent migration: add model column to queries if it doesn't exist yet
+  try {
+    db.exec(`ALTER TABLE queries ADD COLUMN model TEXT`);
+  } catch {
+    // column already exists — no-op
+  }
 }

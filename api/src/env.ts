@@ -11,6 +11,8 @@ const schema = z.object({
   RL_PER_MIN: z.coerce.number().int().positive().default(5),
   RL_PER_DAY: z.coerce.number().int().positive().default(30),
   DAILY_CAP: z.coerce.number().int().positive().default(500),
+  GROQ_API_KEY: z.string().min(1).optional(),
+  OPENROUTER_API_KEY: z.string().min(1).optional(),
   ALLOWED_ORIGINS: z.string().default('http://localhost:5173'),
   PORT: z.coerce.number().int().positive().default(8787),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),

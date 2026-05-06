@@ -37,12 +37,13 @@ export interface InsertQueryInput {
   referrer: string | null;
   cacheHit: boolean;
   status: number;
+  model?: string;
 }
 
 export function insertQuery(input: InsertQueryInput): void {
   db.prepare(
-    `INSERT INTO queries (ts, visitor_id, question, lang, browser, os, device, referrer, cache_hit, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO queries (ts, visitor_id, question, lang, browser, os, device, referrer, cache_hit, status, model)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     input.ts,
     input.visitorId,
@@ -54,6 +55,7 @@ export function insertQuery(input: InsertQueryInput): void {
     input.referrer,
     input.cacheHit ? 1 : 0,
     input.status,
+    input.model ?? null,
   );
 }
 
