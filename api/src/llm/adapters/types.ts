@@ -10,6 +10,7 @@ export interface StreamArgs {
   maxTokens: number;
   temperature: number;
   signal?: AbortSignal;
+  stripThinking?: boolean;
 }
 
 export interface StreamAdapter {

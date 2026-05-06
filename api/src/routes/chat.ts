@@ -136,6 +136,7 @@ chatRoute.post('/', turnstileMiddleware, rateLimitMiddleware, dailyCapMiddleware
         systemInstruction,
         maxTokens: 600,
         temperature: 0.4,
+        stripThinking: modelEntry.stripThinking,
       })) {
         fullAnswer += delta;
         await stream.writeSSE({ event: 'delta', data: JSON.stringify({ delta }) });
