@@ -12,6 +12,7 @@
   "errors.rate": "Too many questions in a short time. Come back in a minute.",
   "errors.cap": "The chat is resting for today. Meanwhile, see the FAQ.",
   "errors.turnstile": "We couldn't verify you're human. Reload the page.",
+  "errors.offline": "The service is offline. Available Monday to Friday, 8:00–20:00.",
   "errors.generic": "Something went wrong on the server. Try again.",
   "errors.model_rate": "This model reached its rate limit.",
   "errors.model_rate_try": "Try another:",

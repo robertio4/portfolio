@@ -19,12 +19,13 @@ export function Chat() {
   const { containerRef, getToken } = useTurnstile();
   const [composerSeed, setComposerSeed] = useState<string | undefined>(undefined);
   const [models, setModels] = useState<PublicModelEntry[]>([]);
+  const [offline, setOffline] = useState(false);
   const { modelId, setModelId } = useModel(models);
 
   useEffect(() => {
     fetchModels()
       .then(setModels)
-      .catch(() => {/* use empty list — ModelSelector renders nothing */});
+      .catch(() => setOffline(true));
   }, []);
 
   // Seed composer from `?q=` query param (e.g. when arriving via SearchAction).
@@ -39,6 +40,7 @@ export function Chat() {
 
   const hasConversation = messages.length > 0;
   const capBlocked = error?.kind === 'cap';
+  const blocked = capBlocked || offline;
 
   async function handleSend(text: string) {
     try {
@@ -136,13 +138,19 @@ export function Chat() {
 
           {hasConversation && <MessageList messages={messages} streaming={streaming} />}
 
+          {offline && (
+            <div className="chat__error rise" role="alert">
+              {t('errors.offline')}
+            </div>
+          )}
+
           {renderError()}
 
-          {capBlocked && <FallbackFaq />}
+          {blocked && <FallbackFaq />}
 
           <div className="chat__composer rise rise-4">
-            <Composer onSend={handleSend} busy={streaming || capBlocked} initialValue={composerSeed} />
-            {!hasConversation && !capBlocked && (
+            <Composer onSend={handleSend} busy={streaming || blocked} initialValue={composerSeed} />
+            {!hasConversation && !blocked && (
               <SuggestedPrompts onPick={handlePick} disabled={streaming} />
             )}
           </div>
