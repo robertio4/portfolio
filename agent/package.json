@@ -1,0 +1,9 @@
+{
+  "name": "agent",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": ".venv/bin/uvicorn agent.main:app --reload --port 8788 --host 127.0.0.1",
+    "start": ".venv/bin/uvicorn agent.main:app --port 8788 --host 127.0.0.1 --workers 1"
+  }
+}

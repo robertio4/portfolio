@@ -4,7 +4,7 @@
   "private": true,
   "description": "Portfolio personal de Roberto con chat conversacional sobre su CV",
   "scripts": {
-    "dev": "concurrently -n web,api -c blue,magenta \"pnpm --filter web dev\" \"pnpm --filter api dev\"",
+    "dev": "concurrently -n web,api,agent -c blue,magenta,green \"pnpm --filter web dev\" \"pnpm --filter api dev\" \"pnpm --filter agent dev\"",
     "build": "pnpm --filter web build && pnpm --filter api build",
     "start": "pnpm --filter api start",
     "ingest": "pnpm --filter api ingest",

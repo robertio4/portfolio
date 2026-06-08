@@ -16,6 +16,7 @@ const schema = z.object({
   ALLOWED_ORIGINS: z.string().default('http://localhost:5173'),
   PORT: z.coerce.number().int().positive().default(8787),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  AGENT_URL: z.string().url().default('http://127.0.0.1:8788'),
 });
 
 const parsed = schema.safeParse(process.env);

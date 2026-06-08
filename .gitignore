@@ -36,3 +36,17 @@ pnpm-debug.log*
 
 # RAG source documents (embeddings live in api/src/rag/index.json)
 doc/
+
+# Python
+agent/.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

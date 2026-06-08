@@ -97,7 +97,8 @@ export function useChatStream() {
         while (true) {
           const { value, done } = await reader.read();
           if (done) break;
-          buf += decoder.decode(value, { stream: true });
+          const chunk = decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n');
+          buf += chunk;
           const events = buf.split('\n\n');
           buf = events.pop() ?? '';
           for (const ev of events) {

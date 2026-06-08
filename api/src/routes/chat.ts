@@ -1,12 +1,6 @@
 import { Hono } from 'hono';
-import { streamSSE } from 'hono/streaming';
 import { z } from 'zod';
-import { embedText } from '../llm/gemini.js';
-import { SYSTEM_PROMPT, buildContext } from '../llm/prompt.js';
 import { MODEL_REGISTRY, DEFAULT_MODEL, findModel, toPublic } from '../llm/registry.js';
-import { getAdapter } from '../llm/adapters/index.js';
-import { retrieve } from '../rag/retrieve.js';
-import * as cache from '../rag/semanticCache.js';
 import { rateLimitMiddleware } from '../middleware/rateLimit.js';
 import { dailyCapMiddleware } from '../middleware/dailyCap.js';
 import { turnstileMiddleware, getClientIp, type ChatVariables } from '../middleware/turnstile.js';
@@ -14,6 +8,7 @@ import { checkModelRateLimit } from '../middleware/modelRateLimit.js';
 import { hashIp, lookupGeo, parseUA } from '../metrics/geo.js';
 import { upsertVisitor, insertQuery, incrementDaily, todayKey } from '../metrics/log.js';
 import { log, newRequestId } from '../lib/logger.js';
+import { env } from '../env.js';
 
 const messageSchema = z
   .object({
@@ -74,102 +69,57 @@ chatRoute.post('/', turnstileMiddleware, rateLimitMiddleware, dailyCapMiddleware
   const visitorId = upsertVisitor({ ipHash, geo, now });
   incrementDaily(todayKey(now));
 
-  let queryEmb: number[];
+  // ── Proxy to Python LangGraph agent ──────────────────────────────────────
+  let upstreamRes: Response;
   try {
-    queryEmb = await embedText(lastUser.content);
-  } catch (err) {
-    log.error('embed_failed', { rid, err: (err as Error).message });
-    insertQuery({
-      ts: now,
-      visitorId,
-      question: lastUser.content,
-      lang,
-      ua,
-      referrer,
-      cacheHit: false,
-      status: 502,
-      model: modelEntry.id,
-    });
-    return c.json({ error: 'embed_failed' }, 502);
-  }
-
-  const cached = cache.lookup(queryEmb, lang);
-  if (cached) {
-    insertQuery({
-      ts: now,
-      visitorId,
-      question: lastUser.content,
-      lang,
-      ua,
-      referrer,
-      cacheHit: true,
-      status: 200,
-      model: modelEntry.id,
-    });
-    return streamSSE(c, async (stream) => {
-      for (const word of cached.split(/(\s+)/)) {
-        await stream.writeSSE({ event: 'delta', data: JSON.stringify({ delta: word }) });
-        await stream.sleep(10);
-      }
-      await stream.writeSSE({ event: 'done', data: JSON.stringify({ cached: true }) });
-    });
-  }
-
-  const top = retrieve(queryEmb, 5);
-  const context = buildContext(top);
-  const systemInstruction = `${SYSTEM_PROMPT}\n\n=== Contexto sobre Roberto ===\n${context}`;
-
-  const contents = messages.map((m) => ({
-    role: m.role as 'user' | 'assistant',
-    text: m.content,
-  }));
-
-  const adapter = getAdapter(modelEntry.provider);
-
-  return streamSSE(c, async (stream) => {
-    let fullAnswer = '';
-    let status = 200;
-    try {
-      for await (const delta of adapter.stream({
-        providerModelId: modelEntry.providerModelId,
-        contents,
-        systemInstruction,
-        maxTokens: 600,
-        temperature: 0.4,
-        stripThinking: modelEntry.stripThinking,
-      })) {
-        fullAnswer += delta;
-        await stream.writeSSE({ event: 'delta', data: JSON.stringify({ delta }) });
-      }
-      await stream.writeSSE({ event: 'done', data: JSON.stringify({ cached: false }) });
-    } catch (err) {
-      status = 502;
-      log.error('llm_failed', { rid, model: modelEntry.id, err: (err as Error).message });
-      await stream.writeSSE({
-        event: 'error',
-        data: JSON.stringify({ message: 'llm_failed', rid }),
-      });
-    } finally {
-      if (fullAnswer.trim().length > 0) {
-        cache.store({
-          embedding: queryEmb,
-          question: lastUser.content,
-          answer: fullAnswer,
-          ts: Date.now(),
-          lang,
-        });
-      }
-      insertQuery({
-        ts: now,
-        visitorId,
-        question: lastUser.content,
+    upstreamRes = await fetch(`${env.AGENT_URL}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages,
         lang,
-        ua,
-        referrer,
-        cacheHit: false,
-        status,
-        model: modelEntry.id,
-      });
-    }
+        session_id: ipHash,
+        provider: modelEntry.provider,
+        provider_model_id: modelEntry.providerModelId,
+        strip_thinking: modelEntry.stripThinking ?? false,
+      }),
+    });
+  } catch (err) {
+    log.error('agent_unreachable', { rid, err: (err as Error).message });
+    insertQuery({ ts: now, visitorId, question: lastUser.content, lang, ua, referrer, cacheHit: false, status: 502, model: modelEntry.id });
+    return c.json({ error: 'agent_unreachable' }, 502);
+  }
+
+  if (!upstreamRes.ok || !upstreamRes.body) {
+    log.error('agent_error', { rid, status: upstreamRes.status });
+    insertQuery({ ts: now, visitorId, question: lastUser.content, lang, ua, referrer, cacheHit: false, status: 502, model: modelEntry.id });
+    return c.json({ error: 'agent_error' }, 502);
+  }
+
+  // Forward the SSE stream straight through; sniff the done event to log cache_hit
+  let cacheHit = false;
+  const decoder = new TextDecoder();
+  const passthrough = new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      const text = decoder.decode(chunk, { stream: true });
+      if (text.includes('"cached":true')) cacheHit = true;
+      controller.enqueue(chunk);
+    },
+    flush() {
+      insertQuery({ ts: now, visitorId, question: lastUser.content, lang, ua, referrer, cacheHit, status: 200, model: modelEntry.id });
+    },
+  });
+
+  upstreamRes.body.pipeTo(passthrough.writable).catch((err) => {
+    log.error('stream_pipe_error', { rid, err: (err as Error).message });
+  });
+
+  return new Response(passthrough.readable, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no',
+    },
   });
 });
