@@ -1,0 +1,41 @@
+# systemd unit for the Python RAG agent (FastAPI + LangGraph, port 8788).
+# The Hono API proxies chat to this service over localhost; it is NOT exposed
+# publicly, so Caddy needs no route for it.
+#
+# ── Install ────────────────────────────────────────────────────────────────
+#   sudo cp agent/deploy/portfolio-agent.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now portfolio-agent
+#   systemctl status portfolio-agent      # check it came up
+#   curl -s localhost:8788/health         # {"ok":true,"index_size":7}
+#
+# ── Adjust before installing if your box differs ───────────────────────────
+#   User / Group        → "ubuntu" on Ubuntu AMIs; "ec2-user" on Amazon Linux
+#   WorkingDirectory     → absolute path to the repo's agent/ dir
+#   ExecStart            → must point at the venv created by `uv sync`
+#
+# Prereqs (one-time, as the service user):
+#   cd <repo>/agent && uv sync && cp .env.example .env   # then fill GOOGLE_API_KEY + GROQ_API_KEY
+#
+# WorkingDirectory MUST be the agent/ dir: RAG_INDEX_PATH is relative
+# (../api/src/rag/index.json) and pydantic loads agent/.env from the CWD.
+
+[Unit]
+Description=Portfolio RAG agent (FastAPI + LangGraph)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/portolio/agent
+ExecStart=/home/ubuntu/portolio/agent/.venv/bin/uvicorn agent.main:app --host 127.0.0.1 --port 8788 --workers 1
+Restart=always
+RestartSec=3
+# Surface logs via journalctl -u portfolio-agent
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
