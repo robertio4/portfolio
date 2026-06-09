@@ -17,7 +17,7 @@ git add -A && git commit -m "deploy agent" && git push origin main
 
 **On EC2 (instance powered on):**
 ```bash
-cd ~/portolio && git pull origin main
+cd ~/portfolio && git pull origin main
 
 # API (now proxies to the agent) — rebuild + restart
 pnpm install && pnpm build

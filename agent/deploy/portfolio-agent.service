@@ -29,8 +29,8 @@ Wants=network-online.target
 Type=simple
 User=ubuntu
 Group=ubuntu
-WorkingDirectory=/home/ubuntu/portolio/agent
-ExecStart=/home/ubuntu/portolio/agent/.venv/bin/uvicorn agent.main:app --host 127.0.0.1 --port 8788 --workers 1
+WorkingDirectory=/home/ubuntu/portfolio/agent
+ExecStart=/home/ubuntu/portfolio/agent/.venv/bin/uvicorn agent.main:app --host 127.0.0.1 --port 8788 --workers 1
 Restart=always
 RestartSec=3
 # Surface logs via journalctl -u portfolio-agent
