@@ -1,0 +1,26 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# compose.override.yml — Overrides para desarrollo local
+#
+# Docker Compose fusiona automáticamente compose.yml + compose.override.yml
+# cuando ejecutas `docker compose up`. En producción solo existe compose.yml.
+#
+# Este fichero:
+#   1. Expone los puertos de api y agent directamente al host
+#      para poder testearlos sin pasar por Caddy.
+#   2. Usa DOMAIN=localhost para que Caddy sirva en local sin Let's Encrypt.
+#
+# En producción (EC2) este fichero NO existe — Caddy es el único punto de entrada.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+services:
+  agent:
+    # Puerto directo al host solo para verificación en local:
+    #   curl http://localhost:8788/health
+    ports:
+      - "8788:8788"
+
+  api:
+    # Puerto directo al host solo para verificación en local:
+    #   curl http://localhost:8787/health
+    ports:
+      - "8787:8787"

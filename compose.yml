@@ -1,0 +1,155 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# compose.yml — Orquestación del backend
+#
+# CONCEPTO CLAVE: Redes Docker y el principio de mínima exposición
+# ─────────────────────────────────────────────────────────────────
+# Docker Compose crea automáticamente una red bridge privada para todos los
+# servicios definidos aquí. Los contenedores se ven entre sí por su nombre
+# de servicio (como si fuera un hostname DNS), pero el host externo NO puede
+# llegar a ellos a menos que se declare `ports:` explícitamente.
+#
+# En este stack:
+#   - Solo `caddy` tiene `ports: [80, 443]` → es el único punto de entrada.
+#   - `api` y `agent` NO tienen `ports:` → invisibles desde el exterior.
+#   - `agent` es accesible desde `api` vía http://agent:8788 (red interna).
+#   - `api`  es accesible desde `caddy` vía http://api:8787 (red interna).
+#
+# Diferencia entre `ports:` y `expose:`
+# ───────────────────────────────────────
+# - `ports: ["8787:8787"]` publica el puerto al host (cualquiera puede conectarse)
+# - `expose: ["8787"]`     solo lo documenta; otros contenedores ya pueden
+#                          llegar por la red interna sin necesidad de `expose:`
+#
+# No usamos `expose:` porque en una red bridge compartida los contenedores
+# pueden comunicarse en cualquier puerto sin declararlo. Solo `ports:` importa
+# para la exposición al host.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+services:
+
+  # ── agent ───────────────────────────────────────────────────────────────────
+  #
+  # El cerebro RAG: routing, retrieval, grading, generación, caché semántica.
+  # SIN `ports:` → completamente invisible desde fuera del servidor.
+  # Solo el contenedor `api` puede llegar aquí, y solo por la red interna.
+  #
+  agent:
+    build:
+      context: .                  # El contexto de build es la raíz del repo
+      dockerfile: Dockerfile.agent
+    env_file: agent/.env          # Carga GOOGLE_API_KEY, GROQ_API_KEY, etc.
+    environment:
+      # Sobreescribe el default del Dockerfile con la ruta del volume montado.
+      # La variable del Dockerfile (RAG_INDEX_PATH=/app/rag/index.json) y
+      # este valor coinciden — lo declaramos aquí explícitamente para que
+      # sea obvio qué ruta usa el contenedor.
+      RAG_INDEX_PATH: /app/rag/index.json
+    volumes:
+      # RAG index montado read-only desde el host.
+      # Cuando corres `pnpm ingest` en local, actualizas este fichero.
+      # Solo necesitas `docker compose restart agent` — no rebuildar la imagen.
+      - ./api/src/rag/index.json:/app/rag/index.json:ro
+    networks:
+      - portfolio_net
+    restart: unless-stopped       # Se reinicia si el proceso muere, pero no
+                                  # si lo paras manualmente con `docker compose stop`
+
+  # ── api ─────────────────────────────────────────────────────────────────────
+  #
+  # El API Hono: capas defensivas, métricas, proxy al agent.
+  # SIN `ports:` → Caddy es el único que accede a él.
+  #
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    env_file: api/.env            # Carga GOOGLE_API_KEY, TURNSTILE_*, IP_SALT, etc.
+    environment:
+      # ── Sobreescrituras críticas ─────────────────────────────────────────
+      #
+      # AGENT_URL: el api/.env del desarrollador apunta a localhost:8788.
+      # En Docker, el agente no es "localhost" — es el contenedor "agent".
+      # Docker Compose registra cada servicio como hostname DNS en la red interna,
+      # así que http://agent:8788 resuelve correctamente dentro del stack.
+      AGENT_URL: http://agent:8788
+
+      # SQLITE_PATH: ruta absoluta dentro del contenedor para evitar ambigüedad.
+      # El volume `api_data` se monta en /app/data, así que los datos persisten
+      # aunque el contenedor se elimine y se vuelva a crear.
+      SQLITE_PATH: /app/data/metrics.db
+
+      # ALLOWED_ORIGINS en producción debe apuntar a tu dominio de Cloudflare Pages.
+      # Sobreescribe el valor del .env local (http://localhost:5173).
+      # Puedes moverlo al api/.env de producción si prefieres no tenerlo aquí.
+      ALLOWED_ORIGINS: https://${DOMAIN}
+    volumes:
+      # Volume nombrado para la base de datos SQLite.
+      # Los volumes nombrados persisten aunque hagas `docker compose down`.
+      # Solo se borran con `docker compose down -v` (destructivo, con cuidado).
+      - api_data:/app/data
+    depends_on:
+      - agent                     # Compose arranca agent antes que api.
+                                  # Nota: solo garantiza que el contenedor haya
+                                  # arrancado, no que el servicio esté listo.
+                                  # El API reintenta la conexión si el agent
+                                  # tarda un momento en estar disponible.
+    networks:
+      - portfolio_net
+    restart: unless-stopped
+
+  # ── caddy ───────────────────────────────────────────────────────────────────
+  #
+  # El único servicio con puertos publicados al host.
+  # Toda petición del exterior entra por Caddy — api y agent nunca
+  # son accesibles directamente desde internet.
+  #
+  caddy:
+    image: caddy:2-alpine         # Imagen oficial de Caddy, sin builder local
+    ports:
+      - "80:80"                   # HTTP (Caddy redirige automáticamente a HTTPS)
+      - "443:443"                 # HTTPS
+      - "443:443/udp"             # HTTP/3 sobre QUIC (mejora latencia)
+    volumes:
+      # Caddyfile read-only: Caddy recarga la config sin reemplazar el contenedor.
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+
+      # caddy_data: certificados TLS de Let's Encrypt.
+      # NUNCA borres este volume con `-v` — perderías los certs y podrías
+      # chocar con los rate limits de Let's Encrypt (5 certs/semana por dominio).
+      - caddy_data:/data
+
+      # caddy_config: estado interno de Caddy (config en memoria persistida).
+      - caddy_config:/config
+    environment:
+      # Pasamos DOMAIN al contenedor de Caddy para que {$DOMAIN} en el
+      # Caddyfile se resuelva correctamente.
+      # Compose lee DOMAIN de un fichero .env en la raíz del repo.
+      # Añade esta línea a tu .env: DOMAIN=tudominio.com
+      DOMAIN: ${DOMAIN}
+    depends_on:
+      - api
+    networks:
+      - portfolio_net
+    restart: unless-stopped
+
+
+# ── Redes ───────────────────────────────────────────────────────────────────
+networks:
+  portfolio_net:
+    # bridge: red privada local en el host. Los contenedores se ven entre sí
+    # por nombre de servicio. El host puede llegar a los contenedores solo
+    # a través de los `ports:` declarados (en este caso, solo Caddy).
+    driver: bridge
+
+
+# ── Volumes ─────────────────────────────────────────────────────────────────
+volumes:
+  # api_data: base de datos SQLite con métricas (visitors, queries, daily_counter).
+  # Persiste entre reinicios y actualizaciones del contenedor.
+  api_data:
+
+  # caddy_data: certificados TLS. Persistir es crítico — ver nota arriba.
+  caddy_data:
+
+  # caddy_config: estado interno de Caddy.
+  caddy_config:
