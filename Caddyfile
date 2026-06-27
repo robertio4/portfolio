@@ -1,0 +1,31 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Caddyfile — Reverse proxy y TLS automático
+#
+# ¿Qué hace Caddy?
+# ─────────────────
+# Caddy es el único servicio del stack que tiene acceso al exterior (puertos
+# 80 y 443). Su trabajo es:
+#   1. Gestionar certificados TLS de Let's Encrypt de forma automática
+#      (no hay que configurar certbot, no hay que renovar a mano).
+#   2. Hacer de reverse proxy: recibir peticiones HTTPS y reenviarlas al
+#      contenedor `api` por la red Docker interna.
+#
+# {$DOMAIN}
+# ──────────
+# Caddy soporta interpolación de variables de entorno con la sintaxis {$VAR}.
+# En compose.yml pasamos la variable DOMAIN al contenedor de Caddy.
+# Así el dominio no está hardcodeado aquí — cambiarlo es solo cambiar .env.
+#
+# Añade esta línea a tu fichero .env en la raíz del repo:
+#   DOMAIN=tudominio.com
+# ═══════════════════════════════════════════════════════════════════════════════
+
+{$DOMAIN} {
+    # reverse_proxy reenvía todas las peticiones al contenedor "api" en el
+    # puerto 8787. "api" es el nombre del servicio en compose.yml — Docker
+    # lo resuelve automáticamente como un hostname DNS dentro de la red interna.
+    #
+    # El cliente externo ve HTTPS (443). Caddy habla HTTP plano con el API
+    # internamente — no hace falta TLS entre contenedores en la misma red Docker.
+    reverse_proxy api:8787
+}
