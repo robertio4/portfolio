@@ -21,11 +21,9 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 {$DOMAIN} {
-    # reverse_proxy reenvía todas las peticiones al contenedor "api" en el
-    # puerto 8787. "api" es el nombre del servicio en compose.yml — Docker
-    # lo resuelve automáticamente como un hostname DNS dentro de la red interna.
-    #
-    # El cliente externo ve HTTPS (443). Caddy habla HTTP plano con el API
-    # internamente — no hace falta TLS entre contenedores en la misma red Docker.
+    reverse_proxy api:8787
+}
+
+api.{$DOMAIN} {
     reverse_proxy api:8787
 }
