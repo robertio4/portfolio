@@ -1,0 +1,119 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Dockerfile.api — API Hono (Node.js)
+#
+# CONCEPTO CLAVE: Multi-stage build
+# ─────────────────────────────────
+# Construimos en dos etapas separadas:
+#
+#  Stage 1 "builder" → imagen con Node completo + pnpm + TypeScript compiler
+#                       → instala TODAS las deps (incluidas devDeps)
+#                       → compila .ts → .js en dist/
+#
+#  Stage 2 "runner"  → imagen mínima Node Alpine
+#                       → solo los ficheros compilados y deps de producción
+#                       → no contiene el compilador, no contiene .ts, no contiene devDeps
+#
+# Resultado: imagen final ~80 MB en lugar de ~500 MB.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+# ── Stage 1: Builder ────────────────────────────────────────────────────────
+#
+# --platform=linux/arm64: fuerza la imagen a arquitectura ARM64.
+# La EC2 t4g.micro es ARM (Graviton). Si construyes en un Mac Intel/AMD,
+# Docker usa QEMU para emular ARM — más lento pero produce el binario correcto.
+#
+FROM --platform=linux/arm64 node:22-alpine AS builder
+
+WORKDIR /app
+
+# Activa pnpm con la versión exacta declarada en el campo "packageManager"
+# del package.json raíz. corepack descarga esa versión si no existe.
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+
+# ── Por qué copiamos los manifiestos ANTES que el código fuente ──────────────
+#
+# Docker construye imágenes capa a capa y cachea cada capa por su contenido.
+# Si esta capa no cambia (el lockfile es el mismo que el build anterior),
+# Docker salta el `pnpm install` entero, que tarda ~30 segundos.
+#
+# Solo cuando cambias una dependencia en package.json se reinstala todo.
+# Si copiáramos todo el código primero, cualquier cambio en un .ts
+# invalidaría la caché y reinstalaría las deps en cada build — lento.
+#
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY api/package.json   ./api/package.json
+COPY web/package.json   ./web/package.json
+COPY agent/package.json ./agent/package.json
+
+# Instala TODAS las dependencias, incluyendo devDeps.
+# --frozen-lockfile: falla si el lockfile no coincide con package.json
+# (garantía de reproducibilidad — mismo resultado en cualquier máquina).
+RUN pnpm install --frozen-lockfile
+
+# Copiamos el código fuente del API y compilamos TypeScript → dist/
+# (Solo después del install para aprovechar el caché de la capa anterior)
+COPY api/ ./api/
+RUN pnpm --filter api build
+
+# ── pnpm deploy ──────────────────────────────────────────────────────────────
+#
+# Crea /standalone: un directorio autónomo con
+#   - node_modules/ de producción SOLO del paquete api/ (sin web/, sin agent/)
+#   - los ficheros del paquete (src/, scripts/, etc.)
+#
+# Esto elimina todas las devDependencies (tsc, tsx, @types/*...) y las deps
+# de los otros paquetes del workspace (React para web/, etc.).
+#
+RUN pnpm --filter api deploy --prod /standalone
+
+# dist/ está en .gitignore, así que pnpm deploy puede no incluirlo.
+# Lo copiamos explícitamente para garantizar que siempre esté presente.
+RUN cp -r /app/api/dist /standalone/dist
+
+
+# ── Stage 2: Runner ─────────────────────────────────────────────────────────
+#
+# Empezamos desde cero con una imagen Alpine mínima.
+# TODO lo del stage builder queda descartado excepto lo que copiemos
+# explícitamente con COPY --from=builder.
+#
+FROM --platform=linux/arm64 node:22-alpine AS runner
+
+# Buena práctica de seguridad: la app nunca corre como root.
+# Si hubiera una vulnerabilidad que permitiera escapar del proceso,
+# el atacante tendría permisos de un usuario sin privilegios, no de root.
+RUN addgroup -S portfolio && adduser -S portfolio -G portfolio
+
+WORKDIR /app
+
+# Copiamos el bundle autónomo: dist/ + node_modules de producción.
+# El runner no sabe nada de TypeScript, pnpm, ni código fuente.
+COPY --from=builder /standalone .
+
+# SQLite escribe la base de datos en ./data/metrics.db (relativo al CWD).
+# Creamos el directorio aquí; en compose.yml se montará como un Docker volume
+# para que los datos persistan cuando el contenedor se reinicie o actualice.
+RUN mkdir -p data && chown portfolio:portfolio data
+
+# Cambiamos al usuario sin privilegios antes de arrancar la app
+USER portfolio
+
+# Variables de entorno de producción (los secretos vienen de api/.env vía compose.yml)
+ENV NODE_ENV=production
+ENV PORT=8787
+
+# EXPOSE documenta qué puerto usa el contenedor.
+# IMPORTANTE: EXPOSE por sí solo NO publica el puerto al host.
+# En compose.yml, este contenedor NO tendrá `ports:` — solo Caddy
+# estará expuesto al exterior. El API solo es accesible dentro de
+# la red Docker interna (portfolio_net).
+EXPOSE 8787
+
+# Arranca la app compilada. El CWD es /app, así que:
+#   - dist/src/index.js → /app/dist/src/index.js ✓
+#   - ./data/metrics.db → /app/data/metrics.db ✓  (montado como volume)
+#
+# Nota: el tsconfig tiene rootDir:"." y los fuentes están en src/, así que
+# TypeScript preserva la carpeta src/ en el output → dist/src/index.js.
+CMD ["node", "dist/src/index.js"]
