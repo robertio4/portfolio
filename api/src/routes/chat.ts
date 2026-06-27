@@ -1,5 +1,4 @@
-import { Hono } from 'hono';
-import { z } from 'zod';
+import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
 import { MODEL_REGISTRY, DEFAULT_MODEL, findModel, toPublic } from '../llm/registry.js';
 import { rateLimitMiddleware } from '../middleware/rateLimit.js';
 import { dailyCapMiddleware } from '../middleware/dailyCap.js';
@@ -28,14 +27,64 @@ const bodySchema = z
 
 export type ChatRequestBody = z.infer<typeof bodySchema>;
 
-export const chatRoute = new Hono<{ Variables: ChatVariables }>();
+const errorSchema = z.object({ error: z.string() });
 
-// GET /chat/models — returns public model list, no auth required
-chatRoute.get('/models', (c) => {
+const publicModelSchema = z.object({
+  id: z.string(),
+  provider: z.enum(['gemini', 'groq', 'openrouter']),
+  label: z.string(),
+  description: z.object({ en: z.string(), es: z.string() }),
+  limits: z.object({ rpm: z.number(), rpd: z.number() }),
+  isDefault: z.boolean().optional(),
+});
+
+const modelsRoute = createRoute({
+  method: 'get',
+  path: '/models',
+  summary: 'List available LLM models',
+  tags: ['Chat'],
+  responses: {
+    200: {
+      content: { 'application/json': { schema: z.array(publicModelSchema) } },
+      description: 'Available models',
+    },
+  },
+});
+
+const chatRoute = createRoute({
+  method: 'post',
+  path: '/',
+  summary: 'Send a chat message',
+  description: 'Streams the response as Server-Sent Events (text/event-stream). Events: `delta` (text chunk) and `done` (with `cached: boolean`).',
+  tags: ['Chat'],
+  request: {
+    body: {
+      content: { 'application/json': { schema: bodySchema } },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      content: { 'text/event-stream': { schema: z.string() } },
+      description: 'SSE stream — `event: delta` chunks then `event: done`',
+    },
+    400: { content: { 'application/json': { schema: errorSchema } }, description: 'Invalid request' },
+    403: { content: { 'application/json': { schema: errorSchema } }, description: 'Turnstile failed' },
+    429: { content: { 'application/json': { schema: errorSchema } }, description: 'Rate limit exceeded' },
+    502: { content: { 'application/json': { schema: errorSchema } }, description: 'Agent unreachable or failed' },
+    503: { content: { 'application/json': { schema: errorSchema } }, description: 'Daily cap reached' },
+  },
+});
+
+export const chatRouter = new OpenAPIHono<{ Variables: ChatVariables }>();
+
+chatRouter.openapi(modelsRoute, (c) => {
   return c.json(MODEL_REGISTRY.map(toPublic));
 });
 
-chatRoute.post('/', turnstileMiddleware, rateLimitMiddleware, dailyCapMiddleware, async (c) => {
+chatRouter.use('/', turnstileMiddleware, rateLimitMiddleware, dailyCapMiddleware);
+
+chatRouter.openapi(chatRoute, async (c) => {
   const rid = newRequestId();
   const stashed = c.get('rawBody');
   const raw = stashed ?? (await c.req.json());
@@ -47,7 +96,6 @@ chatRoute.post('/', turnstileMiddleware, rateLimitMiddleware, dailyCapMiddleware
   const lastUser = [...messages].reverse().find((m) => m.role === 'user');
   if (!lastUser) return c.json({ error: 'no_user_message' }, 400);
 
-  // Resolve model from request or default
   const rawModelId = parsed.data.model ?? DEFAULT_MODEL.id;
   const modelEntry = findModel(rawModelId);
   if (!modelEntry) {
@@ -69,7 +117,6 @@ chatRoute.post('/', turnstileMiddleware, rateLimitMiddleware, dailyCapMiddleware
   const visitorId = upsertVisitor({ ipHash, geo, now });
   incrementDaily(todayKey(now));
 
-  // ── Proxy to Python LangGraph agent ──────────────────────────────────────
   let upstreamRes: Response;
   try {
     upstreamRes = await fetch(`${env.AGENT_URL}/chat`, {
@@ -96,7 +143,6 @@ chatRoute.post('/', turnstileMiddleware, rateLimitMiddleware, dailyCapMiddleware
     return c.json({ error: 'agent_error' }, 502);
   }
 
-  // Forward the SSE stream straight through; sniff the done event to log cache_hit
   let cacheHit = false;
   const decoder = new TextDecoder();
   const passthrough = new TransformStream<Uint8Array, Uint8Array>({
