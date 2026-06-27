@@ -1,0 +1,45 @@
+# ── Dependencias instaladas ─────────────────────────────────────────────────
+# Se reinstalan dentro del contenedor. Enviarlas al daemon desperdiciaría
+# ~700 MB de contexto de build en cada ejecución.
+node_modules/
+api/node_modules/
+web/node_modules/
+agent/.venv/
+**/__pycache__/
+**/*.pyc
+
+# ── Artefactos de build locales ─────────────────────────────────────────────
+# dist/ se genera dentro del contenedor (stage builder). No queremos
+# que el dist/ local sobreescriba el compilado dentro de la imagen.
+api/dist/
+web/dist/
+
+# ── Datos y secrets ─────────────────────────────────────────────────────────
+# Los .env se inyectan en runtime via env_file en compose.yml, nunca en build.
+# api/data/ se monta como Docker volume — no va en la imagen.
+.env
+.env.*
+!.env.example
+api/data/
+*.db
+
+# ── Source docs y ficheros de conocimiento ───────────────────────────────────
+# doc/ es gitignored (PDFs personales). El index.json ya está en api/src/rag/.
+doc/
+
+# ── Infraestructura y despliegue ─────────────────────────────────────────────
+# Terraform y scripts de deploy no son necesarios dentro de los contenedores.
+infra/
+agent/deploy/
+
+# ── Control de versiones y editor ───────────────────────────────────────────
+.git/
+.gitignore
+.vscode/
+.idea/
+*.swp
+
+# ── Logs y caché ─────────────────────────────────────────────────────────────
+*.log
+.cache/
+.turbo/
