@@ -1,0 +1,104 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Dockerfile.agent — Agente Python (FastAPI + LangGraph)
+#
+# DIFERENCIA CON Dockerfile.api: aquí NO usamos multi-stage build.
+# ─────────────────────────────────────────────────────────────────
+# El multi-stage build es valioso cuando hay una "etapa de compilación"
+# que requiere herramientas que no se necesitan en producción (el compilador
+# TypeScript, por ejemplo).
+#
+# Para Python puro, no hay compilación: el intérprete ejecuta los .py
+# directamente. Todas las dependencias de este proyecto (fastapi, uvicorn,
+# langgraph, numpy...) tienen wheels pre-compiladas para ARM64 — no se
+# necesita gcc ni ningún build tool. Una sola imagen es suficiente.
+#
+# Si en el futuro se añadiera una dependencia con extensiones C que necesite
+# compilarse (p.ej. pydantic-core desde fuente), entonces sí tendría sentido
+# pasar a multi-stage para que el compilador no quede en la imagen final.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+FROM --platform=linux/arm64 python:3.11-slim
+
+# python:3.11-slim es Debian Bookworm sin docs ni herramientas de desarrollo.
+# La alternativa sería python:3.11-alpine (más pequeña) pero Alpine usa musl
+# en vez de glibc, lo que rompe algunas wheels binarias pre-compiladas
+# (numpy, en particular). slim + glibc = máxima compatibilidad.
+
+# Buena práctica: nunca correr como root
+RUN groupadd -r portfolio && useradd -r -g portfolio portfolio
+
+WORKDIR /app
+
+# ── Instalar uv ──────────────────────────────────────────────────────────────
+#
+# uv es un gestor de paquetes Python escrito en Rust, ~10-100x más rápido
+# que pip. Lo instalamos con pip (bootstrap) para usarlo en el siguiente paso.
+#
+RUN pip install --no-cache-dir uv==0.7.12
+
+# ── Instalar dependencias (layer cache) ──────────────────────────────────────
+#
+# Mismo truco que en Dockerfile.api: copiamos SOLO pyproject.toml primero.
+# Si las dependencias no cambian entre builds, Docker reutiliza esta capa
+# y salta la instalación (~60 segundos con uv, ~5 minutos con pip).
+#
+# Solo cuando editas pyproject.toml (añades/cambias una dep) se reinstala todo.
+#
+COPY agent/pyproject.toml ./pyproject.toml
+
+# --system: instala al Python del sistema, no en un virtualenv.
+#   En Docker no tiene sentido aislar con .venv — el contenedor YA es el aislamiento.
+# --no-cache: no guarda el cache de wheels en la imagen (ahorra espacio).
+# .: instala el paquete definido en pyproject.toml (portfolio-agent) + todas sus deps.
+RUN uv pip install --system --no-cache .
+
+# ── Código fuente ─────────────────────────────────────────────────────────────
+#
+# Copiamos el paquete Python DESPUÉS de instalar las deps.
+# Así, los cambios en el código no invalidan la capa de deps instaladas.
+#
+COPY agent/agent ./agent
+
+# ── RAG index como volume (NO bakeado en la imagen) ──────────────────────────
+#
+# api/src/rag/index.json es el artefacto que genera `pnpm ingest`.
+# Si lo bakeáramos en la imagen con COPY, tendríamos que rebuildar la imagen
+# cada vez que actualizamos el knowledge base (nuevo CV, nuevo dato...).
+#
+# En su lugar, en compose.yml montaremos el fichero del host como volume
+# read-only dentro del contenedor:
+#
+#   volumes:
+#     - ./api/src/rag/index.json:/app/rag/index.json:ro
+#
+# Y sobreescribimos la variable que apunta a él:
+#
+ENV RAG_INDEX_PATH=/app/rag/index.json
+
+# Puerto del agente (documentado, sobreescribible vía compose.yml)
+ENV AGENT_PORT=8788
+
+RUN chown -R portfolio:portfolio /app
+USER portfolio
+
+# EXPOSE documenta el puerto interno del contenedor.
+# Este contenedor NO tendrá `ports:` en compose.yml — es SOLO interno.
+# Ningún proceso fuera de la red Docker puede alcanzarlo directamente.
+# Solo el contenedor `api` puede llegar a él por la red interna (portfolio_net).
+EXPOSE 8788
+
+# ── CRÍTICO: --host 0.0.0.0 ──────────────────────────────────────────────────
+#
+# En desarrollo usamos --host 127.0.0.1 (loopback): solo el proceso local
+# puede conectarse. Eso es una buena práctica en la máquina local.
+#
+# En Docker, cada contenedor tiene su propia interfaz de red virtual.
+# El "127.0.0.1" de este contenedor es su propio loopback — no el del host
+# ni el de otros contenedores. Si escucháramos solo en 127.0.0.1, el
+# contenedor `api` NO podría llegar aquí aunque estén en la misma red Docker.
+#
+# 0.0.0.0 = "escucha en TODAS las interfaces de este contenedor".
+# Como el contenedor no tiene `ports:` en compose.yml, esto no supone ningún
+# riesgo: sus interfaces solo son accesibles desde dentro de la red Docker.
+#
+CMD ["uvicorn", "agent.main:app", "--host", "0.0.0.0", "--port", "8788", "--workers", "1"]
