@@ -1,9 +1,11 @@
 import json
 import logging
 from contextlib import asynccontextmanager
+from typing import Literal
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 from agent.config import settings
@@ -17,6 +19,25 @@ logging.basicConfig(level=settings.LOG_LEVEL.upper())
 log = logging.getLogger(__name__)
 
 
+class Message(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=2000)
+
+
+class ChatRequest(BaseModel):
+    messages: list[Message] = Field(min_length=1, max_length=40)
+    lang: Literal["es", "en"] = "es"
+    session_id: str = "anonymous"
+    provider: str = "groq"
+    provider_model_id: str = "llama-3.1-8b-instant"
+    strip_thinking: bool = False
+
+
+class HealthResponse(BaseModel):
+    ok: bool
+    index_size: int
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     load_index(settings.RAG_INDEX_PATH)
@@ -24,25 +45,19 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    title="Portfolio RAG Agent",
+    description="Internal LangGraph agent — router → RAG → grader → generator.",
+    version="1.0.0",
+    lifespan=lifespan,
+)
 
 
-@app.post("/chat")
-async def chat(request: Request):
-    try:
-        body = await request.json()
-    except Exception:
-        return JSONResponse({"error": "invalid_json"}, status_code=400)
-
-    messages: list[dict] = body.get("messages", [])
-    lang: str = body.get("lang", "es")
-    session_id: str = body.get("session_id", "anonymous")
-    provider: str = body.get("provider", "groq")
-    provider_model_id: str = body.get("provider_model_id", "llama-3.1-8b-instant")
-    strip_thinking: bool = body.get("strip_thinking", False)
-
-    if not messages:
-        return JSONResponse({"error": "no_messages"}, status_code=400)
+@app.post("/chat", summary="Stream a chat response via SSE")
+async def chat(body: ChatRequest):
+    messages = [m.model_dump() for m in body.messages]
+    lang = body.lang
+    session_id = body.session_id
 
     # Prepend server-side memory only when the client sends a single message —
     # meaning it has lost its local state (e.g. page refresh). When the client
@@ -55,9 +70,9 @@ async def chat(request: Request):
         "messages": full_messages,
         "lang": lang,
         "session_id": session_id,
-        "provider": provider,
-        "provider_model_id": provider_model_id,
-        "strip_thinking": strip_thinking,
+        "provider": body.provider,
+        "provider_model_id": body.provider_model_id,
+        "strip_thinking": body.strip_thinking,
         "route": None,
         "query_embedding": None,
         "retrieved_chunks": None,
@@ -107,6 +122,6 @@ async def chat(request: Request):
     return EventSourceResponse(event_stream())
 
 
-@app.get("/health")
-async def health():
-    return {"ok": True, "index_size": index_size()}
+@app.get("/health", response_model=HealthResponse, summary="Health check")
+async def health() -> HealthResponse:
+    return HealthResponse(ok=True, index_size=index_size())
