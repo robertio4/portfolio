@@ -1,0 +1,19 @@
+# Copia este fichero a terraform.tfvars y rellena tus valores.
+# terraform.tfvars está en .gitignore — nunca lo subas al repo.
+
+# Región de AWS (elige la más cercana)
+# eu-west-1 = Irlanda | eu-south-2 = España | us-east-1 = N. Virginia
+aws_region = "eu-west-1"
+
+# Nombre del Key Pair en AWS (EC2 → Key Pairs → Create key pair)
+key_pair_name = "mi-key-portfolio"
+
+# Tu IP pública con /32 — solo tu máquina puede hacer SSH
+# Obtén tu IP: curl https://checkip.amazonaws.com
+ssh_allowed_cidr = "0.0.0.0/32"  # <-- cambia esto por tu IP real
+
+# URL del repositorio git
+github_repo_url = "https://github.com/robertio4/portfolio.git"
+
+# Dominio público del portfolio
+domain = "robertorf.dev"

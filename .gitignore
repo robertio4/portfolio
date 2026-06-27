@@ -37,6 +37,13 @@ pnpm-debug.log*
 # RAG source documents (embeddings live in api/src/rag/index.json)
 doc/
 
+# Terraform
+infra/terraform.tfvars
+infra/.terraform/
+infra/terraform.tfstate
+infra/terraform.tfstate.backup
+infra/.terraform.lock.hcl
+
 # Python
 agent/.venv/
 __pycache__/
