@@ -4,15 +4,15 @@ on:
   push:
     branches: [main]
     paths:
-      - 'api/**'
-      - 'agent/**'
-      - 'Dockerfile.*'
-      - 'compose.yml'
-      - 'Caddyfile'
+      - "api/**"
+      - "agent/**"
+      - "Dockerfile.*"
+      - "compose.yml"
+      - "Caddyfile"
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.2.0
