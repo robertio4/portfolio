@@ -19,4 +19,10 @@ jobs:
           cd ~/portfolio
           git pull
           docker compose up -d --build
+          # index.json is bind-mounted into agent (not baked into its image, see
+          # compose.yml), so `up --build` won't recreate the agent container when
+          # only api/src/rag/index.json changes. The RAG index is loaded once at
+          # process startup, so a stale agent keeps serving the old index forever
+          # unless explicitly restarted here.
+          docker compose restart agent
           docker compose ps
