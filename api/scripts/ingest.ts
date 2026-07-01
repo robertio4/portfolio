@@ -42,7 +42,18 @@ async function readDoc(path: string): Promise<DocFile> {
 }
 
 function normalize(t: string): string {
-  return t.replace(/\r\n/g, '\n').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  // pdf-parse renders blank lines as a line containing only whitespace (e.g. "\n \n"),
+  // never a truly empty line. Trimming each line first turns those into real blank lines
+  // so the '\n\n' paragraph separator below (and in the splitter) actually finds them —
+  // otherwise section/entry boundaries in the source PDF are invisible to the chunker,
+  // which then merges unrelated paragraphs (e.g. bio + first job entry) into one chunk.
+  return t
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+/g, ' ').trim())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 async function main() {
